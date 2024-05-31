@@ -1,39 +1,37 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Application Process and Workflow</title>
-<style>
-    body {
-        font-family: Arial, sans-serif;
-        margin: 0;
-        padding: 0;
-    }
-    .container {
-        max-width: 800px;
-        margin: 50px auto;
+footer {
+        background-color: #fff;
+        color: #333;
+        padding: 50px 0;
         text-align: center;
     }
-    h1 {
-        font-size: 36px;
-        margin-bottom: 20px;
+    h2 {
+        font-size: 32px;
+        font-weight: bold;
+        margin-bottom: 10px; /* Reduced margin-bottom */
     }
-    img {
-        max-width: 100%;
-        height: auto;
-        margin-bottom: 20px;
+    .btn {
+        background: linear-gradient(135deg, #001f4d, #004080);
+        color: #fff;
+        border: none;
+        border-radius: 50px;
+        padding: 10px 30px; /* Adjusted padding */
+        text-decoration: none;
+        display: inline-block;
+        margin-top: 10px; /* Adjusted margin-top */
+        box-shadow: 0px 5px 15px rgba(0, 0, 0, 0.3);
+        transition: all 0.3s ease;
     }
-</style>
-</head>
-<body>
+    .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0px 8px 20px rgba(0, 0, 0, 0.5);
+    }
 
-<div class="container">
-    <h1>Process</h1>
-    <img src="process_image.jpg" alt="Process Image">
-    <h1>Workflow</h1>
-    <img src="workflow_image.jpg" alt="Workflow Image">
-</div>
 
-</body>
-</html>
+
+
+
+in html 
+<footer>
+    <h2>Got Questions?</h2>
+    <a href="#" class="btn">How can I get GitHub access or issue with GitHub actions?</a>
+</footer>
