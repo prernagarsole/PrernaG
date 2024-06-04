@@ -44,3 +44,18 @@
     box-shadow: 0 8px 16px rgba(0, 0, 255, 0.2); /* Enhanced blue shadow on hover */
 }
 </style>
+
+<style>
+/* Custom CSS for Blue-Themed SharePoint Promoted Links */
+
+/* General container for promoted links, adjust this selector as needed */
+.ms-promlink-body {
+    box-shadow: 0 4px 8px rgba(0, 0, 255, 0.3); /* Blue shadow effect */
+}
+
+/* Hover effects */
+.ms-promlink-body:hover {
+    box-shadow: 0 8px 16px rgba(0, 0, 255, 0.5); /* Enhanced blue shadow on hover */
+}
+</style>
+
