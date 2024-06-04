@@ -1,55 +1,62 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Layout Example</title>
-<style>
-    body {
-        font-family: Arial, sans-serif;
-        margin: 0;
-        padding: 0;
-    }
-    .container {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        grid-gap: 10px;
-        max-width: 600px; /* Adjust as needed */
-        margin: 0 auto; /* Center the container */
-    }
-    .center-image {
-        grid-column: 2;
-        grid-row: 2;
-        text-align: center;
-    }
-    .center-image img {
-        max-width: 100%;
-        max-height: 100%;
-        border-radius: 10px;
-    }
-    .surrounding-images {
-        text-align: center;
-    }
-    .surrounding-images img {
-        max-width: 100%;
-        max-height: 100%;
-        border-radius: 10px;
-    }
-</style>
-</head>
-<body>
+/* Custom CSS for SharePoint Promoted Links */
 
-<div class="container">
-    <div class="center-image"><img src="center_image.jpg" alt="Center Image"></div>
-    <div class="surrounding-images"><img src="image1.jpg" alt="Surrounding Image 1"></div>
-    <div class="surrounding-images"><img src="image2.jpg" alt="Surrounding Image 2"></div>
-    <div class="surrounding-images"><img src="image3.jpg" alt="Surrounding Image 3"></div>
-    <div class="surrounding-images"><img src="image4.jpg" alt="Surrounding Image 4"></div>
-    <div class="surrounding-images"><img src="image5.jpg" alt="Surrounding Image 5"></div>
-    <div class="surrounding-images"><img src="image6.jpg" alt="Surrounding Image 6"></div>
-    <div class="surrounding-images"><img src="image7.jpg" alt="Surrounding Image 7"></div>
-    <div class="surrounding-images"><img src="image8.jpg" alt="Surrounding Image 8"></div>
-</div>
+/* Container styling for promoted links */
+.ms-promlink-body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f8f9fa;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+    transition: background-color 0.3s, box-shadow 0.3s;
+}
 
-</body>
-</html>
+/* Title styling */
+.ms-tileview-tile-title {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 18px;
+    font-weight: 600;
+    color: #005a9e;
+    margin-bottom: 5px;
+}
+
+/* Content styling */
+.ms-tileview-tile-content {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 14px;
+    color: #333333;
+}
+
+/* Hover effects */
+.ms-promlink-body:hover {
+    background-color: #e0f7fa;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Link styling */
+.ms-tileview-tile-title a {
+    text-decoration: none;
+    color: inherit;
+}
+
+.ms-tileview-tile-title a:hover {
+    color: #007acc;
+    text-decoration: underline;
+}
+
+/* Button styling */
+.ms-promlink-body .ms-Button {
+    background-color: #005a9e;
+    color: #ffffff;
+    border: none;
+    border-radius: 4px;
+    padding: 10px 15px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.ms-promlink-body .ms-Button:hover {
+    background-color: #007acc;
+}
