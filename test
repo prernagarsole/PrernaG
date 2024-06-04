@@ -1,16 +1,6 @@
 <style>
 /* Custom CSS for Blue-Themed SharePoint Promoted Links */
 
-/* Container styling */
-.ms-tileview-tile-root {
-    transition: background-color 0.3s; /* Smooth transition for background color */
-}
-
-/* Hover effect */
-.ms-tileview-tile-root:hover {
-    background-color: #337ab7; /* Bright blue background on hover */
-}
-
 /* Title styling */
 .ms-tileview-tile-title {
     transition: color 0.3s; /* Smooth transition for title color */
@@ -18,7 +8,7 @@
 }
 
 /* Hover effect on title */
-.ms-tileview-tile-root:hover .ms-tileview-tile-title {
+.ms-tileview-tile:hover .ms-tileview-tile-title {
     color: #004080; /* Dark blue color for title on hover */
 }
 </style>
