@@ -1,91 +1,26 @@
 <style>
 /* Custom CSS for Blue-Themed SharePoint Promoted Links */
 
-/* General container for promoted links, adjust this selector as needed */
-.ms-promlink-body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background-color: #e6f0fa; /* Light blue background */
-    border: 1px solid #b3d1f2; /* Slightly darker blue border */
-    border-radius: 8px;
-    padding: 15px;
-    margin-bottom: 20px;
-    box-shadow: 0 4px 8px rgba(0, 0, 255, 0.1); /* Light blue shadow effect */
-    transition: box-shadow 0.3s ease; /* Smooth transition for hover effect */
+/* Container styling */
+.ms-tileview-tile-root {
+    transition: background-color 0.3s; /* Smooth transition for background color */
 }
 
-/* Title styling */
-.ms-tileview-tile-title {
-    font-size: 18px;
-    font-weight: 600;
-    color: #004080; /* Dark blue color */
-    margin-bottom: 5px;
+/* Hover effect */
+.ms-tileview-tile-root:hover {
+    background-color: #337ab7; /* Bright blue background on hover */
 }
 
-/* Content styling */
-.ms-tileview-tile-content {
-    font-size: 14px;
-    color: #0059b3; /* Medium blue color */
+/* Title and Icon styling */
+.ms-tileview-tile-title, .ms-tileview-tile-content, .ms-tileview-tile-icon {
+    transition: color 0.3s; /* Smooth transition for text and icon color */
+    color: #fff; /* White color for text and icon */
 }
 
-/* Link styling */
-.ms-tileview-tile-title a, .ms-tileview-tile-content a {
-    color: #003366; /* Darker blue for links */
-    text-decoration: none;
-    font-weight: 600;
-}
-
-.ms-tileview-tile-title a:hover, .ms-tileview-tile-content a:hover {
-    color: #0066cc; /* Bright blue on hover */
-    text-decoration: underline;
-}
-
-/* Hover effects */
-.ms-promlink-body:hover {
-    box-shadow: 0 8px 16px rgba(0, 0, 255, 0.2); /* Enhanced blue shadow on hover */
+/* Hover effect on title and icon */
+.ms-tileview-tile-root:hover .ms-tileview-tile-title,
+.ms-tileview-tile-root:hover .ms-tileview-tile-content,
+.ms-tileview-tile-root:hover .ms-tileview-tile-icon {
+    color: #004080; /* Dark blue color for text and icon on hover */
 }
 </style>
-
-<style>
-/* Custom CSS for Blue-Themed SharePoint Promoted Links */
-
-/* Title styling */
-.ms-tileview-tile-title {
-    font-size: 18px;
-    font-weight: 600;
-    color: #004080; /* Dark blue color */
-    margin-bottom: 5px;
-}
-
-/* Hover effect on title */
-.ms-tileview-tile-title:hover {
-    color: #66c1f0; /* Light blue color on hover */
-}
-
-/* Content styling */
-.ms-tileview-tile-content {
-    font-size: 14px;
-    color: #0059b3; /* Medium blue color */
-}
-
-/* Link styling */
-.ms-tileview-tile-title a, .ms-tileview-tile-content a {
-    color: #003366; /* Darker blue for links */
-    text-decoration: none;
-    font-weight: 600;
-}
-
-.ms-tileview-tile-title a:hover, .ms-tileview-tile-content a:hover {
-    color: #0066cc; /* Bright blue on hover */
-    text-decoration: underline;
-}
-
-/* Hover effects */
-.ms-promlink-body {
-    box-shadow: 0 4px 8px rgba(0, 0, 255, 0.3); /* Blue shadow effect */
-}
-
-.ms-promlink-body:hover {
-    box-shadow: 0 8px 16px rgba(0, 0, 255, 0.5); /* Enhanced blue shadow on hover */
-}
-</style>
-
