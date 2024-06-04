@@ -11,16 +11,14 @@
     background-color: #337ab7; /* Bright blue background on hover */
 }
 
-/* Title and Icon styling */
-.ms-tileview-tile-title, .ms-tileview-tile-content, .ms-tileview-tile-icon {
-    transition: color 0.3s; /* Smooth transition for text and icon color */
-    color: #fff; /* White color for text and icon */
+/* Title styling */
+.ms-tileview-tile-title {
+    transition: color 0.3s; /* Smooth transition for title color */
+    color: #fff; /* White color for title */
 }
 
-/* Hover effect on title and icon */
-.ms-tileview-tile-root:hover .ms-tileview-tile-title,
-.ms-tileview-tile-root:hover .ms-tileview-tile-content,
-.ms-tileview-tile-root:hover .ms-tileview-tile-icon {
-    color: #004080; /* Dark blue color for text and icon on hover */
+/* Hover effect on title */
+.ms-tileview-tile-root:hover .ms-tileview-tile-title {
+    color: #004080; /* Dark blue color for title on hover */
 }
 </style>
