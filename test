@@ -48,12 +48,42 @@
 <style>
 /* Custom CSS for Blue-Themed SharePoint Promoted Links */
 
-/* General container for promoted links, adjust this selector as needed */
+/* Title styling */
+.ms-tileview-tile-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #004080; /* Dark blue color */
+    margin-bottom: 5px;
+}
+
+/* Hover effect on title */
+.ms-tileview-tile-title:hover {
+    color: #66c1f0; /* Light blue color on hover */
+}
+
+/* Content styling */
+.ms-tileview-tile-content {
+    font-size: 14px;
+    color: #0059b3; /* Medium blue color */
+}
+
+/* Link styling */
+.ms-tileview-tile-title a, .ms-tileview-tile-content a {
+    color: #003366; /* Darker blue for links */
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.ms-tileview-tile-title a:hover, .ms-tileview-tile-content a:hover {
+    color: #0066cc; /* Bright blue on hover */
+    text-decoration: underline;
+}
+
+/* Hover effects */
 .ms-promlink-body {
     box-shadow: 0 4px 8px rgba(0, 0, 255, 0.3); /* Blue shadow effect */
 }
 
-/* Hover effects */
 .ms-promlink-body:hover {
     box-shadow: 0 8px 16px rgba(0, 0, 255, 0.5); /* Enhanced blue shadow on hover */
 }
