@@ -1,4 +1,4 @@
-name: Fetch Organization Repos
+name: Fetch Organization Repositories
 
 on:
   push:
@@ -14,65 +14,30 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v2
 
-    - name: Set up Python
-      uses: actions/setup-python@v3
-      with:
-        python-version: '3.x'
-
-    - name: Install dependencies
-      run: pip install requests
-
-    - name: Fetch repository URLs
+    - name: Fetch Repository URLs
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        ORG_NAME: your_actual_organization_name  # Replace with your actual organization name
+        ORG_NAME: your_organization_name  # Replace with your GitHub organization name
       run: |
-        echo "import os" > fetch_repos.py
-        echo "import requests" >> fetch_repos.py
-        echo "" >> fetch_repos.py
-        echo "# GitHub Personal Access Token (from GitHub Actions secret)" >> fetch_repos.py
-        echo "GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')" >> fetch_repos.py
-        echo "" >> fetch_repos.py
-        echo "# GitHub Organization Name (from GitHub Actions environment variable)" >> fetch_repos.py
-        echo "ORG_NAME = os.getenv('ORG_NAME')" >> fetch_repos.py
-        echo "" >> fetch_repos.py
-        echo "# GitHub API URL" >> fetch_repos.py
-        echo "API_URL = f'https://api.github.com/orgs/{ORG_NAME}/repos'" >> fetch_repos.py
-        echo "" >> fetch_repos.py
-        echo "# Headers for authentication" >> fetch_repos.py
-        echo "headers = {" >> fetch_repos.py
-        echo "    'Authorization': f'token {GITHUB_TOKEN}'" >> fetch_repos.py
-        echo "}" >> fetch_repos.py
-        echo "" >> fetch_repos.py
-        echo "def fetch_repos():" >> fetch_repos.py
-        echo "    page = 1" >> fetch_repos.py
-        echo "    repo_urls = []" >> fetch_repos.py
-        echo "" >> fetch_repos.py
-        echo "    while True:" >> fetch_repos.py
-        echo "        response = requests.get(API_URL, headers=headers, params={'per_page': 100, 'page': page})" >> fetch_repos.py
-        echo "" >> fetch_repos.py
-        echo "        # Check if the response is successful" >> fetch_repos.py
-        echo "        if response.status_code != 200:" >> fetch_repos.py
-        echo "            print(f'Failed to fetch repositories: {response.status_code}')" >> fetch_repos.py
-        echo "            break" >> fetch_repos.py
-        echo "" >> fetch_repos.py
-        echo "        repos = response.json()" >> fetch_repos.py
-        echo "" >> fetch_repos.py
-        echo "        # Break the loop if there are no more repositories" >> fetch_repos.py
-        echo "        if not repos:" >> fetch_repos.py
-        echo "            break" >> fetch_repos.py
-        echo "" >> fetch_repos.py
-        echo "        # Extract repository URLs" >> fetch_repos.py
-        echo "        for repo in repos:" >> fetch_repos.py
-        echo "            repo_urls.append(repo['html_url'])" >> fetch_repos.py
-        echo "" >> fetch_repos.py
-        echo "        # Increment the page number" >> fetch_repos.py
-        echo "        page += 1" >> fetch_repos.py
-        echo "" >> fetch_repos.py
-        echo "    return repo_urls" >> fetch_repos.py
-        echo "" >> fetch_repos.py
-        echo "# Fetch and print all repository URLs" >> fetch_repos.py
-        echo "repo_urls = fetch_repos()" >> fetch_repos.py
-        echo "for url in repo_urls:" >> fetch_repos.py
-        echo "    print(url)" >> fetch_repos.py
-        python fetch_repos.py
+        $headers = @{
+            Authorization = "Bearer $env:GITHUB_TOKEN"
+            Accept = "application/vnd.github.v3+json"
+        }
+
+        $page = 1
+        $repo_urls = @()
+
+        do {
+            $uri = "https://api.github.com/orgs/$env:ORG_NAME/repos?per_page=100&page=$page"
+            $response = Invoke-RestMethod -Uri $uri -Headers $headers -Method Get
+
+            foreach ($repo in $response) {
+                $repo_urls += $repo.html_url
+            }
+
+            $page++
+        } while ($response.Count -gt 0)
+
+        foreach ($url in $repo_urls) {
+            Write-Output $url
+        }
