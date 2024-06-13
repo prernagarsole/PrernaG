@@ -14,30 +14,26 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v2
 
-    - name: Fetch Repository URLs
+     - name: Fetch Enterprise Organizations
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        ORG_NAME: your_organization_name  # Replace with your GitHub organization name
+        ENTERPRISE_NAME: your_enterprise_name  # Replace with your GitHub Enterprise name
       run: |
         $headers = @{
             Authorization = "Bearer $env:GITHUB_TOKEN"
             Accept = "application/vnd.github.v3+json"
         }
 
-        $page = 1
-        $repo_urls = @()
+        $org_urls = @()
 
-        do {
-            $uri = "https://api.github.com/orgs/$env:ORG_NAME/repos?per_page=100&page=$page"
-            $response = Invoke-RestMethod -Uri $uri -Headers $headers -Method Get
+        # Get list of organizations under the enterprise
+        $uri = "https://api.github.com/enterprises/$env:ENTERPRISE_NAME/orgs"
+        $orgsResponse = Invoke-RestMethod -Uri $uri -Headers $headers -Method Get
 
-            foreach ($repo in $response) {
-                $repo_urls += $repo.html_url
-            }
+        foreach ($org in $orgsResponse) {
+            $org_urls += $org.url  # Adjust this to use the appropriate URL field from the API response
+        }
 
-            $page++
-        } while ($response.Count -gt 0)
-
-        foreach ($url in $repo_urls) {
+        foreach ($url in $org_urls) {
             Write-Output $url
         }
