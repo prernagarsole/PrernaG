@@ -1,3 +1,58 @@
+
+
+import json
+import urllib.request
+import openpyxl
+
+def fetch_members(token, org):
+    url = f"https://api.github.com/orgs/{org}/members"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/vnd.github.v3+json"
+    }
+
+    try:
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req) as response:
+            members_json = response.read().decode('utf-8')
+            members = json.loads(members_json)
+            return members
+    except urllib.error.HTTPError as e:
+        print(f"HTTP Error: {e.code} - {e.reason}")
+    except urllib.error.URLError as e:
+        print(f"URL Error: {e.reason}")
+    except Exception as e:
+        print(f"Error fetching members for organization {org}: {e}")
+
+def main():
+    # Replace with your GitHub personal access token
+    token = "YOUR_GITHUB_TOKEN"
+
+    # Load the Excel file
+    workbook = openpyxl.load_workbook("orgs.xlsx")
+    sheet = workbook.active
+
+    # Iterate through the organizations in the Excel file
+    for row in sheet.iter_rows(min_row=2, values_only=True):
+        org = row[0]
+        if org:
+            print(f"Fetching members for organization: {org}")
+            members = fetch_members(token, org)
+            if members:
+                for member in members:
+                    print(f"Login: {member['login']}")
+                    print(f"ID: {member['id']}")
+                    print(f"URL: {member['url']}")
+                    print(f"---")
+
+if __name__ == "__main__":
+    main()
+
+
+
+
+
+
 import json
 import urllib.request
 
