@@ -1,94 +1,49 @@
-import csv
-import json
-import urllib.request
+# Define the function to get the memberID from the name in Active Directory
+function Get-MemberIDFromName {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$UserName
+    )
 
-def fetch_members(token, org):
-    url = f"https://api.github.com/orgs/{org}/members"
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Accept": "application/vnd.github.v3+json"
+    try {
+        # Create a directory entry object to connect to the root of the domain
+        $root = New-Object System.DirectoryServices.DirectoryEntry("LDAP://RootDSE")
+        $domain = $root.Properties["defaultNamingContext"][0]
+        $directoryEntry = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$domain")
+
+        # Create a directory searcher object
+        $searcher = New-Object System.DirectoryServices.DirectorySearcher($directoryEntry)
+
+        # Set the search filter to find the user by name
+        $searcher.Filter = "(&(objectCategory=person)(objectClass=user)(sAMAccountName=$UserName))"
+
+        # Specify the properties to load
+        $searcher.PropertiesToLoad.Add("memberID") | Out-Null
+
+        # Perform the search
+        $result = $searcher.FindOne()
+
+        if ($result -ne $null) {
+            # Fetch the memberID from the result
+            $memberID = $result.Properties["memberID"]
+
+            if ($memberID -ne $null -and $memberID.Count -gt 0) {
+                return $memberID[0]
+            } else {
+                Write-Error "memberID not found for user: $UserName"
+            }
+        } else {
+            Write-Error "User not found: $UserName"
+        }
+    } catch {
+        Write-Error "An error occurred: $_"
     }
+}
 
-    try:
-        req = urllib.request.Request(url, headers=headers)
-        with urllib.request.urlopen(req) as response:
-            members_json = response.read().decode('utf-8')
-            members = json.loads(members_json)
-            return members
-    except urllib.error.HTTPError as e:
-        print(f"HTTP Error: {e.code} - {e.reason}")
-    except urllib.error.URLError as e:
-        print(f"URL Error: {e.reason}")
-    except Exception as e:
-        print(f"Error fetching members for organization {org}: {e}")
+# Example usage
+$UserName = "D3044"
+$memberID = Get-MemberIDFromName -UserName $UserName
 
-def main():
-    # Replace with your GitHub personal access token
-    token = "YOUR_GITHUB_TOKEN"
-
-    # Load the CSV file
-    with open("orgs.csv", newline='') as csvfile:
-        reader = csv.DictReader(csvfile)
-        
-        # Iterate through the organizations in the CSV file
-        for row in reader:
-            org = row['Organization']
-            if org:
-                print(f"Fetching members for organization: {org}")
-                members = fetch_members(token, org)
-                if members:
-                    for member in members:
-                        print(f"Login: {member['login']}")
-                        print(f"ID: {member['id']}")
-                        print(f"URL: {member['url']}")
-                        print(f"---")
-
-if __name__ == "__main__":
-    main()
-
-
-
-
-
-
-
-import json
-import urllib.request
-
-def fetch_organizations(token):
-    url = "https://api.github.com/organizations"
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Accept": "application/vnd.github.v3+json"
-    }
-
-    try:
-        req = urllib.request.Request(url, headers=headers)
-        with urllib.request.urlopen(req) as response:
-            orgs_json = response.read().decode('utf-8')
-            orgs = json.loads(orgs_json)
-            return orgs
-    except urllib.error.HTTPError as e:
-        print(f"HTTP Error: {e.code} - {e.reason}")
-    except urllib.error.URLError as e:
-        print(f"URL Error: {e.reason}")
-    except Exception as e:
-        print(f"Error fetching organizations: {e}")
-
-def main():
-    # Replace with your GitHub personal access token
-    token = "YOUR_GITHUB_TOKEN"
-
-    # Fetch organizations
-    orgs = fetch_organizations(token)
-    if orgs:
-        for org in orgs:
-            print(f"Login: {org['login']}")
-            print(f"ID: {org['id']}")
-            print(f"URL: {org['url']}")
-            print(f"Repositories URL: {org['repos_url']}")
-            print(f"Events URL: {org['events_url']}")
-            print(f"---")
-
-if __name__ == "__main__":
-    main()
+if ($memberID) {
+    Write-Output "The memberID for $UserName is $memberID"
+}
