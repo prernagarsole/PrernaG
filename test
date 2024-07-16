@@ -1,49 +1,38 @@
-# Define the function to get the memberID from the name in Active Directory
-function Get-MemberIDFromName {
-    param (
-        [Parameter(Mandatory = $true)]
-        [string]$UserName
-    )
+<div id="listContainer"></div>
+<script type="text/javascript">
+    var listName = "YourListName"; // Replace with your list name
+    var siteUrl = _spPageContextInfo.webAbsoluteUrl;
 
-    try {
-        # Create a directory entry object to connect to the root of the domain
-        $root = New-Object System.DirectoryServices.DirectoryEntry("LDAP://RootDSE")
-        $domain = $root.Properties["defaultNamingContext"][0]
-        $directoryEntry = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$domain")
+    function renderListView() {
+        var ctx = new SP.ClientContext(siteUrl);
+        var list = ctx.get_web().get_lists().getByTitle(listName);
+        var camlQuery = new SP.CamlQuery();
+        var items = list.getItems(camlQuery);
 
-        # Create a directory searcher object
-        $searcher = New-Object System.DirectoryServices.DirectorySearcher($directoryEntry)
+        ctx.load(items);
+        ctx.executeQueryAsync(function() {
+            var listEnumerator = items.getEnumerator();
+            var html = "<table><thead><tr>";
 
-        # Set the search filter to find the user by name
-        $searcher.Filter = "(&(objectCategory=person)(objectClass=user)(sAMAccountName=$UserName))"
+            // Add table headers
+            html += "<th>Title</th>"; // Add your column names here
+            html += "</tr></thead><tbody>";
 
-        # Specify the properties to load
-        $searcher.PropertiesToLoad.Add("memberID") | Out-Null
-
-        # Perform the search
-        $result = $searcher.FindOne()
-
-        if ($result -ne $null) {
-            # Fetch the memberID from the result
-            $memberID = $result.Properties["memberID"]
-
-            if ($memberID -ne $null -and $memberID.Count -gt 0) {
-                return $memberID[0]
-            } else {
-                Write-Error "memberID not found for user: $UserName"
+            // Add table rows
+            while (listEnumerator.moveNext()) {
+                var listItem = listEnumerator.get_current();
+                html += "<tr>";
+                html += "<td>" + listItem.get_fieldValues()["Title"] + "</td>"; // Add your column values here
+                html += "</tr>";
             }
-        } else {
-            Write-Error "User not found: $UserName"
-        }
-    } catch {
-        Write-Error "An error occurred: $_"
+
+            html += "</tbody></table>";
+            document.getElementById("listContainer").innerHTML = html;
+        }, function(sender, args) {
+            document.getElementById("listContainer").innerHTML = "Error: " + args.get_message();
+        });
     }
-}
 
-# Example usage
-$UserName = "D3044"
-$memberID = Get-MemberIDFromName -UserName $UserName
-
-if ($memberID) {
-    Write-Output "The memberID for $UserName is $memberID"
-}
+    // Load the SharePoint script and call the function
+    SP.SOD.executeFunc('sp.js', 'SP.ClientContext', renderListView);
+</script>
