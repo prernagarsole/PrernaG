@@ -203,7 +203,7 @@ def fetch_data(url):
         print(f"HTTP Error {e.code}: {e.reason}")
         return None
 
-# Fetch all repositories in the organization (handling pagination)
+# Fetch all repositories in the organization
 repos_data = []
 page = 1
 while True:
@@ -267,8 +267,11 @@ for repo in repos_data:
                         "Condition": "orgScan: 'NFCU'"
                     })
     
-    except Exception as e:
-        print(f"Error fetching workflows for repo {repo_name}: {e}")
+    except HTTPError as e:
+        if e.code == 404:
+            print(f"HTTP Error 404: Workflow files not found for repo {repo_name}")
+        else:
+            print(f"HTTP Error {e.code}: {e.reason} for repo {repo_name}")
 
 # Print message if no workflow files are found
 if not workflow_files_found:
