@@ -42,93 +42,81 @@ for repo in repos_data:
 
 
 
+import json
+import urllib.request
 
+# GitHub organization details
+org_name = "your_organization"  # replace with your organization name
 
+# GitHub personal access token
+token = "your_personal_access_token"  # replace with your personal access token
 
+# GitHub API base URL
+base_url = f"https://api.github.com/orgs/{org_name}/repos"
 
+# Headers for API request (authentication with token)
+headers = {
+    "Authorization": f"token {token}",
+    "Accept": "application/vnd.github.v3+json"
+}
 
+# Function to fetch data from GitHub API
+def fetch_data(url):
+    req = urllib.request.Request(url, headers=headers)
+    with urllib.request.urlopen(req) as response:
+        return response.read()
 
-
-
-
-
-
-
-
-
-
-
-import os
-
-# Function to check conditions in a workflow file
-def check_workflow_file(file_content):
-    is_checkmarx = False
-    orgScan = False
-    
-    # Split file content by lines
-    lines = file_content.splitlines()
-    
-    for line in lines:
-        line = line.strip()
-        
-        # Check for is_checkmarx condition
-        if "is_checkmarx: 'True'" in line:
-            is_checkmarx = True
-        
-        # Check for orgScan condition
-        if "orgScan: 'NFCU'" in line:
-            orgScan = True
-    
-    # Determine output based on conditions
-    if is_checkmarx:
-        return "True"
-    elif not any("is_checkmarx:" in line for line in lines):
-        return "not present"
-    else:
-        return "False"
-    
-    if orgScan:
-        return "NFCU"
-    elif not any("orgScan:" in line for line in lines):
-        return "not present"
-    else:
-        return "False"
-
-# Directory where workflow files are located (.github/workflows)
-workflows_dir = ".github/workflows"
-
-# Iterate over all repositories in the organization
-org_repos = os.listdir(workflows_dir)
+# Fetch all repositories in the organization
+repos_data = json.loads(fetch_data(base_url))
 
 # List to collect results
 results = []
 
-for repo in org_repos:
-    repo_path = os.path.join(workflows_dir, repo)
+for repo in repos_data:
+    repo_name = repo["name"]
+    workflow_url = f"https://api.github.com/repos/{org_name}/{repo_name}/contents/.github/workflows"
     
-    # Check if it's a directory
-    if os.path.isdir(repo_path):
-        for root, dirs, files in os.walk(repo_path):
-            for file in files:
-                if file.endswith(".yml"):
-                    file_path = os.path.join(root, file)
-                    
-                    # Read the file content
-                    with open(file_path, 'r', encoding='utf-8') as f:
-                        file_content = f.read()
-                    
-                    # Check conditions in the file
-                    output = check_workflow_file(file_content)
-                    
-                    # Add result to the list
-                    results.append({
-                        "Repo": repo,
-                        "Workflow File": file,
-                        "Output": output
-                    })
+    # Fetch workflow files from the .github/workflows directory
+    workflows_data = json.loads(fetch_data(workflow_url))
+    
+    for workflow_file in workflows_data:
+        if workflow_file["type"] == "file" and workflow_file["name"].endswith(".yml"):
+            file_download_url = workflow_file["download_url"]
+            
+            # Fetch the workflow file content
+            file_content = fetch_data(file_download_url).decode("utf-8")
+            
+            # Check conditions in the file content
+            is_checkmarx_true = "is_checkmarx: 'True'" in file_content
+            is_checkmarx_false = "is_checkmarx: 'False'" in file_content
+            orgScan_nfcu = "orgScan: 'NFCU'" in file_content
+            
+            if is_checkmarx_true:
+                results.append({
+                    "Repo": repo_name,
+                    "Workflow File": workflow_file['name'],
+                    "Condition": "is_checkmarx: 'True'"
+                })
+            elif "is_checkmarx:" not in file_content:
+                results.append({
+                    "Repo": repo_name,
+                    "Workflow File": workflow_file['name'],
+                    "Condition": "is_checkmarx not present"
+                })
+            elif is_checkmarx_false:
+                results.append({
+                    "Repo": repo_name,
+                    "Workflow File": workflow_file['name'],
+                    "Condition": "is_checkmarx: 'False'"
+                })
+            
+            if orgScan_nfcu:
+                results.append({
+                    "Repo": repo_name,
+                    "Workflow File": workflow_file['name'],
+                    "Condition": "orgScan: 'NFCU'"
+                })
 
 # Print results
 for result in results:
-    print(f"Repo: {result['Repo']}, Workflow File: {result['Workflow File']}")
-    print(f"Output: {result['Output']}")
-    print("-----------------------------")
+    print(f"Repo: {result['Repo']}, Workflow File: {result['Workflow File']}, Condition: {result['Condition']}")
