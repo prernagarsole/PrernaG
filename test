@@ -252,39 +252,40 @@ for repo in repos_data:
                 orgScan_nfcu = "orgScan: 'NFCU'" in file_content
                 orgScan_nfcu_not_present = "orgScan: 'NFCU'" not in file_content
                 
+                # Evaluate conditions and append results
                 if is_checkmarx_true:
                     results.append({
                         "Repo": repo_name,
                         "Workflow File": workflow_file['name'],
-                        "Condition": "is_checkmarx: 'true'"
+                        "Condition": "TRUE - is_checkmarx: 'true'"
                     })
                 
                 if is_checkmarx_not_present:
                     results.append({
                         "Repo": repo_name,
                         "Workflow File": workflow_file['name'],
-                        "Condition": "is_checkmarx not present"
+                        "Condition": "NOT PRESENT - is_checkmarx"
                     })
                 
                 if is_checkmarx_false:
                     results.append({
                         "Repo": repo_name,
                         "Workflow File": workflow_file['name'],
-                        "Condition": "is_checkmarx: 'false'"
+                        "Condition": "FALSE - is_checkmarx: 'false'"
                     })
                 
                 if orgScan_nfcu:
                     results.append({
                         "Repo": repo_name,
                         "Workflow File": workflow_file['name'],
-                        "Condition": "orgScan: 'NFCU'"
+                        "Condition": "TRUE - orgScan: 'NFCU'"
                     })
                 
                 if orgScan_nfcu_not_present:
                     results.append({
                         "Repo": repo_name,
                         "Workflow File": workflow_file['name'],
-                        "Condition": "orgScan: 'NFCU' not present"
+                        "Condition": "FALSE - orgScan: 'NFCU' not present"
                     })
     
     except HTTPError as e:
