@@ -203,7 +203,7 @@ def fetch_data(url):
         print(f"HTTP Error {e.code}: {e.reason}")
         return None
 
-# Fetch all repositories in the organization
+# Fetch all repositories in the organization (handling pagination)
 repos_data = []
 page = 1
 while True:
@@ -216,9 +216,6 @@ while True:
         break
     repos_data.extend(page_repos)
     page += 1
-
-# Flag to track if any workflow files are found
-workflow_files_found = False
 
 # List to collect results
 results = []
@@ -239,7 +236,6 @@ for repo in repos_data:
         workflows_data = json.loads(workflows_response)
         
         if workflows_data:
-            workflow_files_found = True
             print(f"- {repo_name}")  # Print repo name when workflow files are found
         
         for workflow_file in workflows_data:
@@ -250,8 +246,25 @@ for repo in repos_data:
                 file_content = fetch_data(file_download_url).decode("utf-8")
                 
                 # Check conditions in the file content
+                is_checkmarx_true = "is_checkmarx: 'true'" in file_content
                 is_checkmarx_false = "is_checkmarx: 'false'" in file_content
+                is_checkmarx_not_present = "is_checkmarx:" not in file_content
                 orgScan_nfcu = "orgScan: 'NFCU'" in file_content
+                orgScan_nfcu_not_present = "orgScan: 'NFCU'" not in file_content
+                
+                if is_checkmarx_true:
+                    results.append({
+                        "Repo": repo_name,
+                        "Workflow File": workflow_file['name'],
+                        "Condition": "is_checkmarx: 'true'"
+                    })
+                
+                if is_checkmarx_not_present:
+                    results.append({
+                        "Repo": repo_name,
+                        "Workflow File": workflow_file['name'],
+                        "Condition": "is_checkmarx not present"
+                    })
                 
                 if is_checkmarx_false:
                     results.append({
@@ -266,6 +279,13 @@ for repo in repos_data:
                         "Workflow File": workflow_file['name'],
                         "Condition": "orgScan: 'NFCU'"
                     })
+                
+                if orgScan_nfcu_not_present:
+                    results.append({
+                        "Repo": repo_name,
+                        "Workflow File": workflow_file['name'],
+                        "Condition": "orgScan: 'NFCU' not present"
+                    })
     
     except HTTPError as e:
         if e.code == 404:
@@ -273,14 +293,10 @@ for repo in repos_data:
         else:
             print(f"HTTP Error {e.code}: {e.reason} for repo {repo_name}")
 
-# Print message if no workflow files are found
-if not workflow_files_found:
-    print("No workflow files found in any repository.")
-
-# Check if results are empty
-if not results:
-    print("No matching conditions found in any workflow files.")
-
 # Print results if any conditions were found
-for result in results:
-    print(f"Repo: {result['Repo']}, Workflow File: {result['Workflow File']}, Condition: {result['Condition']}")
+if results:
+    print("\nResults:")
+    for result in results:
+        print(f"Repo: {result['Repo']}, Workflow File: {result['Workflow File']}, Condition: {result['Condition']}")
+else:
+    print("No matching conditions found in any workflow files.")
