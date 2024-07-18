@@ -172,7 +172,6 @@ else:
 
 
 
-
 import json
 import urllib.request
 from urllib.error import HTTPError
@@ -253,34 +252,34 @@ for repo in repos_data:
                     results.append({
                         "Repo": repo_name,
                         "Workflow File": workflow_file['name'],
-                        "Condition": "FALSE"
+                        "Condition": "is_checkmarx: 'false' - Result: FALSE"
                     })
                 
                 if "is_checkmarx: 'true'" in file_content:
                     results.append({
                         "Repo": repo_name,
                         "Workflow File": workflow_file['name'],
-                        "Condition": "TRUE"
+                        "Condition": "is_checkmarx: 'true' - Result: TRUE"
                     })
                 
                 if "is_checkmarx:" not in file_content:
                     results.append({
                         "Repo": repo_name,
                         "Workflow File": workflow_file['name'],
-                        "Condition": "TRUE (NOT PRESENT)"
+                        "Condition": "is_checkmarx: not present - Result: TRUE (NOT PRESENT)"
                     })
                 
                 if "orgScan: 'NFCU'" in file_content:
                     results.append({
                         "Repo": repo_name,
                         "Workflow File": workflow_file['name'],
-                        "Condition": "TRUE"
+                        "Condition": "orgScan: 'NFCU' - Result: TRUE"
                     })
                 elif "orgScan: 'NFCU'" not in file_content:
                     results.append({
                         "Repo": repo_name,
                         "Workflow File": workflow_file['name'],
-                        "Condition": "FALSE"
+                        "Condition": "orgScan: 'NFCU' not present - Result: FALSE"
                     })
     
     except Exception as e:
@@ -296,4 +295,4 @@ if not results:
 
 # Print results if any conditions were found
 for result in results:
-    print(f"Repo: {result['Repo']}, Workflow File: {result['Workflow File']}, Condition: {result['Condition']}")
+    print(f"Repo: {result['Repo']}, Workflow File: {result['Workflow File']}, {result['Condition']}")
