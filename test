@@ -77,46 +77,54 @@ for repo in repos_data:
     workflow_url = f"https://api.github.com/repos/{org_name}/{repo_name}/contents/.github/workflows"
     
     # Fetch workflow files from the .github/workflows directory
-    workflows_data = json.loads(fetch_data(workflow_url))
+    try:
+        workflows_data = json.loads(fetch_data(workflow_url))
+        
+        for workflow_file in workflows_data:
+            if workflow_file["type"] == "file" and workflow_file["name"].endswith(".yml"):
+                file_download_url = workflow_file["download_url"]
+                
+                # Fetch the workflow file content
+                file_content = fetch_data(file_download_url).decode("utf-8")
+                
+                # Check conditions in the file content
+                is_checkmarx_true = "is_checkmarx: 'True'" in file_content
+                is_checkmarx_false = "is_checkmarx: 'False'" in file_content
+                orgScan_nfcu = "orgScan: 'NFCU'" in file_content
+                
+                if is_checkmarx_true:
+                    results.append({
+                        "Repo": repo_name,
+                        "Workflow File": workflow_file['name'],
+                        "Condition": "is_checkmarx: 'True'"
+                    })
+                elif "is_checkmarx:" not in file_content:
+                    results.append({
+                        "Repo": repo_name,
+                        "Workflow File": workflow_file['name'],
+                        "Condition": "is_checkmarx not present"
+                    })
+                elif is_checkmarx_false:
+                    results.append({
+                        "Repo": repo_name,
+                        "Workflow File": workflow_file['name'],
+                        "Condition": "is_checkmarx: 'False'"
+                    })
+                
+                if orgScan_nfcu:
+                    results.append({
+                        "Repo": repo_name,
+                        "Workflow File": workflow_file['name'],
+                        "Condition": "orgScan: 'NFCU'"
+                    })
     
-    for workflow_file in workflows_data:
-        if workflow_file["type"] == "file" and workflow_file["name"].endswith(".yml"):
-            file_download_url = workflow_file["download_url"]
-            
-            # Fetch the workflow file content
-            file_content = fetch_data(file_download_url).decode("utf-8")
-            
-            # Check conditions in the file content
-            is_checkmarx_true = "is_checkmarx: 'True'" in file_content
-            is_checkmarx_false = "is_checkmarx: 'False'" in file_content
-            orgScan_nfcu = "orgScan: 'NFCU'" in file_content
-            
-            if is_checkmarx_true:
-                results.append({
-                    "Repo": repo_name,
-                    "Workflow File": workflow_file['name'],
-                    "Condition": "is_checkmarx: 'True'"
-                })
-            elif "is_checkmarx:" not in file_content:
-                results.append({
-                    "Repo": repo_name,
-                    "Workflow File": workflow_file['name'],
-                    "Condition": "is_checkmarx not present"
-                })
-            elif is_checkmarx_false:
-                results.append({
-                    "Repo": repo_name,
-                    "Workflow File": workflow_file['name'],
-                    "Condition": "is_checkmarx: 'False'"
-                })
-            
-            if orgScan_nfcu:
-                results.append({
-                    "Repo": repo_name,
-                    "Workflow File": workflow_file['name'],
-                    "Condition": "orgScan: 'NFCU'"
-                })
+    except Exception as e:
+        print(f"Error fetching workflows for repo {repo_name}: {e}")
 
-# Print results
+# Check if results are empty
+if not results:
+    print("No matching conditions found in any workflow files.")
+
+# Print results if any conditions were found
 for result in results:
     print(f"Repo: {result['Repo']}, Workflow File: {result['Workflow File']}, Condition: {result['Condition']}")
