@@ -203,7 +203,7 @@ def fetch_data(url):
         print(f"HTTP Error {e.code}: {e.reason}")
         return None
 
-# Fetch all repositories in the organization (handling pagination)
+# Fetch all repositories in the organization
 repos_data = []
 page = 1
 while True:
@@ -235,9 +235,6 @@ for repo in repos_data:
         
         workflows_data = json.loads(workflows_response)
         
-        if workflows_data:
-            print(f"- {repo_name}")  # Print repo name when workflow files are found
-        
         for workflow_file in workflows_data:
             if workflow_file["type"] == "file" and workflow_file["name"].endswith(".yml"):
                 file_download_url = workflow_file["download_url"]
@@ -245,52 +242,55 @@ for repo in repos_data:
                 # Fetch the workflow file content
                 file_content = fetch_data(file_download_url).decode("utf-8")
                 
+                # Initialize flags for conditions
+                is_checkmarx_true = False
+                is_checkmarx_present = False
+                is_checkmarx_false = False
+                orgScan_nfcu = False
+                orgScan_present = False
+                
                 # Check conditions in the file content
-                is_checkmarx_true = "is_checkmarx: 'true'" in file_content
-                is_checkmarx_false = "is_checkmarx: 'false'" in file_content
-                is_checkmarx_not_present = "is_checkmarx:" not in file_content
-                orgScan_nfcu = "orgScan: 'NFCU'" in file_content
-                orgScan_nfcu_not_present = "orgScan: 'NFCU'" not in file_content
+                if "is_checkmarx: 'true'" in file_content.lower():
+                    is_checkmarx_true = True
+                if "is_checkmarx:" not in file_content.lower():
+                    is_checkmarx_present = True
+                if "is_checkmarx: 'false'" in file_content.lower():
+                    is_checkmarx_false = True
+                if "orgScan: 'nfcu'" in file_content:
+                    orgScan_nfcu = True
+                if "orgScan:" not in file_content:
+                    orgScan_present = True
                 
-                # Print condition and result clearly
+                # Collect results based on conditions
                 if is_checkmarx_true:
-                    print(f"Condition: 'is_checkmarx: 'true'' ---- Result: 'TRUE'")
                     results.append({
                         "Repo": repo_name,
                         "Workflow File": workflow_file['name'],
-                        "Condition": "TRUE - is_checkmarx: 'true'"
+                        "Condition": "is_checkmarx: 'true'"
                     })
-                
-                if is_checkmarx_not_present:
-                    print(f"Condition: 'is_checkmarx' not present ---- Result: 'NOT PRESENT'")
+                if is_checkmarx_present:
                     results.append({
                         "Repo": repo_name,
                         "Workflow File": workflow_file['name'],
-                        "Condition": "NOT PRESENT - is_checkmarx"
+                        "Condition": "is_checkmarx not present"
                     })
-                
                 if is_checkmarx_false:
-                    print(f"Condition: 'is_checkmarx: 'false'' ---- Result: 'FALSE'")
                     results.append({
                         "Repo": repo_name,
                         "Workflow File": workflow_file['name'],
-                        "Condition": "FALSE - is_checkmarx: 'false'"
+                        "Condition": "is_checkmarx: 'false'"
                     })
-                
                 if orgScan_nfcu:
-                    print(f"Condition: 'orgScan: 'NFCU'' ---- Result: 'TRUE'")
                     results.append({
                         "Repo": repo_name,
                         "Workflow File": workflow_file['name'],
-                        "Condition": "TRUE - orgScan: 'NFCU'"
+                        "Condition": "orgScan: 'NFCU'"
                     })
-                
-                if orgScan_nfcu_not_present:
-                    print(f"Condition: 'orgScan: 'NFCU'' not present ---- Result: 'FALSE'")
+                if orgScan_present:
                     results.append({
                         "Repo": repo_name,
                         "Workflow File": workflow_file['name'],
-                        "Condition": "FALSE - orgScan: 'NFCU' not present"
+                        "Condition": "orgScan not present"
                     })
     
     except HTTPError as e:
@@ -301,7 +301,6 @@ for repo in repos_data:
 
 # Print results if any conditions were found
 if results:
-    print("\nResults:")
     for result in results:
         print(f"Repo: {result['Repo']}, Workflow File: {result['Workflow File']}, Condition: {result['Condition']}")
 else:
