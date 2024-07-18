@@ -176,6 +176,7 @@ else:
 
 import json
 import urllib.request
+from urllib.error import HTTPError
 
 # GitHub organization details
 org_name = "your_organization"  # replace with your organization name
@@ -195,17 +196,35 @@ headers = {
 # Function to fetch data from GitHub API
 def fetch_data(url):
     req = urllib.request.Request(url, headers=headers)
-    with urllib.request.urlopen(req) as response:
-        return response.read()
+    try:
+        with urllib.request.urlopen(req) as response:
+            return response.read()
+    except HTTPError as e:
+        print(f"HTTP Error {e.code}: {e.reason}")
+        return None
 
-# Fetch all repositories in the organization
-repos_data = json.loads(fetch_data(base_url))
+# Fetch all repositories in the organization (handling pagination)
+repos_data = []
+page = 1
+while True:
+    url = f"{base_url}?page={page}&per_page=100"  # Fetch 100 repos per page (adjust per_page as needed)
+    response = fetch_data(url)
+    if not response:
+        break
+    page_repos = json.loads(response)
+    if not page_repos:
+        break
+    repos_data.extend(page_repos)
+    page += 1
 
-# Flag to track if workflow files are found
+# Flag to track if any workflow files are found
 workflow_files_found = False
 
 # List to collect results
 results = []
+
+# Debugging output to track which repositories have workflow files
+print("Repositories with workflow files:")
 
 for repo in repos_data:
     repo_name = repo["name"]
@@ -213,10 +232,15 @@ for repo in repos_data:
     
     try:
         # Fetch workflow files from the .github/workflows directory
-        workflows_data = json.loads(fetch_data(workflow_url))
+        workflows_response = fetch_data(workflow_url)
+        if not workflows_response:
+            continue
         
-        # Set flag to true if workflow files are found
-        workflow_files_found = True
+        workflows_data = json.loads(workflows_response)
+        
+        if workflows_data:
+            workflow_files_found = True
+            print(f"- {repo_name}")  # Print repo name when workflow files are found
         
         for workflow_file in workflows_data:
             if workflow_file["type"] == "file" and workflow_file["name"].endswith(".yml"):
@@ -257,4 +281,3 @@ if not results:
 # Print results if any conditions were found
 for result in results:
     print(f"Repo: {result['Repo']}, Workflow File: {result['Workflow File']}, Condition: {result['Condition']}")
-
