@@ -199,13 +199,10 @@ def fetch_data(url):
         with urllib.request.urlopen(req) as response:
             return response.read()
     except HTTPError as e:
-        if e.code == 404:
-            print(f"HTTP Error 404: {e.reason}")
-        else:
-            print(f"HTTP Error {e.code}: {e.reason}")
+        print(f"HTTP Error {e.code}: {e.reason}")
         return None
 
-# Fetch all repositories in the organization
+# Fetch all repositories in the organization (handling pagination)
 repos_data = []
 page = 1
 while True:
@@ -219,74 +216,84 @@ while True:
     repos_data.extend(page_repos)
     page += 1
 
+# Flag to track if any workflow files are found
+workflow_files_found = False
+
 # List to collect results
 results = []
 
-# Process each repository
+# Debugging output to track which repositories have workflow files
+print("Repositories with workflow files:")
+
 for repo in repos_data:
     repo_name = repo["name"]
     workflow_url = f"https://api.github.com/repos/{org_name}/{repo_name}/contents/.github/workflows"
     
-    # Fetch workflow files from the .github/workflows directory
-    workflows_response = fetch_data(workflow_url)
-    if not workflows_response:
-        continue
-    
-    workflows_data = json.loads(workflows_response)
-    
-    for workflow_file in workflows_data:
-        if workflow_file["type"] == "file" and workflow_file["name"].endswith(".yml"):
-            file_download_url = workflow_file["download_url"]
-            
-            # Fetch the workflow file content
-            file_content = fetch_data(file_download_url).decode("utf-8")
-            
-            if file_content:
+    try:
+        # Fetch workflow files from the .github/workflows directory
+        workflows_response = fetch_data(workflow_url)
+        if not workflows_response:
+            continue
+        
+        workflows_data = json.loads(workflows_response)
+        
+        if workflows_data:
+            workflow_files_found = True
+            print(f"- {repo_name}")  # Print repo name when workflow files are found
+        
+        for workflow_file in workflows_data:
+            if workflow_file["type"] == "file" and workflow_file["name"].endswith(".yml"):
+                file_download_url = workflow_file["download_url"]
+                
+                # Fetch the workflow file content
+                file_content = fetch_data(file_download_url).decode("utf-8")
+                
                 # Check conditions in the file content
-                is_checkmarx_true = "is_checkmarx: 'true'" in file_content
-                is_checkmarx_present = "is_checkmarx:" in file_content
-                is_checkmarx_false = "is_checkmarx: 'false'" in file_content
-                orgScan_nfcu_present = "orgScan: 'NFCU'" in file_content
-                orgScan_nfcu_not_present = "orgScan: 'NFCU'" not in file_content
-                
-                # Evaluate conditions and append results
-                if is_checkmarx_true:
+                if "is_checkmarx: 'false'" in file_content:
                     results.append({
                         "Repo": repo_name,
                         "Workflow File": workflow_file['name'],
-                        "Condition": "TRUE (is_checkmarx: 'true')"
-                    })
-                elif not is_checkmarx_present:
-                    results.append({
-                        "Repo": repo_name,
-                        "Workflow File": workflow_file['name'],
-                        "Condition": "TRUE (No presence in WF)"
-                    })
-                elif is_checkmarx_false:
-                    results.append({
-                        "Repo": repo_name,
-                        "Workflow File": workflow_file['name'],
-                        "Condition": "FALSE (is_checkmarx: 'false')"
+                        "Condition": "FALSE"
                     })
                 
-                if orgScan_nfcu_present:
+                if "is_checkmarx: 'true'" in file_content:
                     results.append({
                         "Repo": repo_name,
                         "Workflow File": workflow_file['name'],
-                        "Condition": "TRUE (orgScan: 'NFCU')"
+                        "Condition": "TRUE"
                     })
                 
-                if orgScan_nfcu_not_present:
+                if "is_checkmarx:" not in file_content:
                     results.append({
                         "Repo": repo_name,
                         "Workflow File": workflow_file['name'],
-                        "Condition": "FALSE (No presence in WF)"
+                        "Condition": "TRUE (NOT PRESENT)"
                     })
+                
+                if "orgScan: 'NFCU'" in file_content:
+                    results.append({
+                        "Repo": repo_name,
+                        "Workflow File": workflow_file['name'],
+                        "Condition": "TRUE"
+                    })
+                elif "orgScan: 'NFCU'" not in file_content:
+                    results.append({
+                        "Repo": repo_name,
+                        "Workflow File": workflow_file['name'],
+                        "Condition": "FALSE"
+                    })
+    
+    except Exception as e:
+        print(f"Error fetching workflows for repo {repo_name}: {e}")
+
+# Print message if no workflow files are found
+if not workflow_files_found:
+    print("No workflow files found in any repository.")
+
+# Check if results are empty
+if not results:
+    print("No matching conditions found in any workflow files.")
 
 # Print results if any conditions were found
-if results:
-    print("Results:")
-    for result in results:
-        print(f"Repo: {result['Repo']}, Workflow File: {result['Workflow File']}, Condition: {result['Condition']}")
-else:
-    print("No matching conditions found in any workflow files.")
+for result in results:
+    print(f"Repo: {result['Repo']}, Workflow File: {result['Workflow File']}, Condition: {result['Condition']}")
