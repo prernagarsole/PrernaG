@@ -252,8 +252,9 @@ for repo in repos_data:
                 orgScan_nfcu = "orgScan: 'NFCU'" in file_content
                 orgScan_nfcu_not_present = "orgScan: 'NFCU'" not in file_content
                 
-                # Evaluate conditions and append results
+                # Print condition and result clearly
                 if is_checkmarx_true:
+                    print(f"Condition: 'is_checkmarx: 'true'' ---- Result: 'TRUE'")
                     results.append({
                         "Repo": repo_name,
                         "Workflow File": workflow_file['name'],
@@ -261,6 +262,7 @@ for repo in repos_data:
                     })
                 
                 if is_checkmarx_not_present:
+                    print(f"Condition: 'is_checkmarx' not present ---- Result: 'NOT PRESENT'")
                     results.append({
                         "Repo": repo_name,
                         "Workflow File": workflow_file['name'],
@@ -268,6 +270,7 @@ for repo in repos_data:
                     })
                 
                 if is_checkmarx_false:
+                    print(f"Condition: 'is_checkmarx: 'false'' ---- Result: 'FALSE'")
                     results.append({
                         "Repo": repo_name,
                         "Workflow File": workflow_file['name'],
@@ -275,6 +278,7 @@ for repo in repos_data:
                     })
                 
                 if orgScan_nfcu:
+                    print(f"Condition: 'orgScan: 'NFCU'' ---- Result: 'TRUE'")
                     results.append({
                         "Repo": repo_name,
                         "Workflow File": workflow_file['name'],
@@ -282,6 +286,7 @@ for repo in repos_data:
                     })
                 
                 if orgScan_nfcu_not_present:
+                    print(f"Condition: 'orgScan: 'NFCU'' not present ---- Result: 'FALSE'")
                     results.append({
                         "Repo": repo_name,
                         "Workflow File": workflow_file['name'],
