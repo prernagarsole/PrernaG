@@ -1,38 +1,63 @@
-<div id="listContainer"></div>
-<script type="text/javascript">
-    var listName = "YourListName"; // Replace with your list name
-    var siteUrl = _spPageContextInfo.webAbsoluteUrl;
+import json
+import urllib.request
+import base64
+import yaml
 
-    function renderListView() {
-        var ctx = new SP.ClientContext(siteUrl);
-        var list = ctx.get_web().get_lists().getByTitle(listName);
-        var camlQuery = new SP.CamlQuery();
-        var items = list.getItems(camlQuery);
+# GitHub organization details
+org_name = "your_organization"  # replace with your organization name
 
-        ctx.load(items);
-        ctx.executeQueryAsync(function() {
-            var listEnumerator = items.getEnumerator();
-            var html = "<table><thead><tr>";
+# GitHub personal access token
+token = "your_personal_access_token"  # replace with your personal access token
 
-            // Add table headers
-            html += "<th>Title</th>"; // Add your column names here
-            html += "</tr></thead><tbody>";
+# GitHub API base URL
+base_url = f"https://api.github.com/orgs/{org_name}/repos"
 
-            // Add table rows
-            while (listEnumerator.moveNext()) {
-                var listItem = listEnumerator.get_current();
-                html += "<tr>";
-                html += "<td>" + listItem.get_fieldValues()["Title"] + "</td>"; // Add your column values here
-                html += "</tr>";
-            }
+# Headers for API request (authentication with token)
+headers = {
+    "Authorization": f"token {token}",
+    "Accept": "application/vnd.github.v3+json"
+}
 
-            html += "</tbody></table>";
-            document.getElementById("listContainer").innerHTML = html;
-        }, function(sender, args) {
-            document.getElementById("listContainer").innerHTML = "Error: " + args.get_message();
-        });
-    }
+# Function to fetch data from GitHub API
+def fetch_data(url):
+    req = urllib.request.Request(url, headers=headers)
+    with urllib.request.urlopen(req) as response:
+        return response.read()
 
-    // Load the SharePoint script and call the function
-    SP.SOD.executeFunc('sp.js', 'SP.ClientContext', renderListView);
-</script>
+# Fetch all repositories in the organization
+repos_data = json.loads(fetch_data(base_url))
+
+for repo in repos_data:
+    repo_name = repo["name"]
+    workflow_url = f"https://api.github.com/repos/{org_name}/{repo_name}/contents/.github/workflows"
+    
+    # Fetch workflow files from the .github/workflows directory
+    workflows_data = json.loads(fetch_data(workflow_url))
+    
+    for workflow_file in workflows_data:
+        if workflow_file["type"] == "file" and workflow_file["name"].endswith(".yml"):
+            file_download_url = workflow_file["download_url"]
+            
+            # Fetch the workflow file content
+            file_content = fetch_data(file_download_url).decode("utf-8")
+            
+            try:
+                # Parse the YAML content
+                workflow = yaml.safe_load(file_content)
+                
+                # Example: Extract values from the parsed YAML (adjust based on your YAML structure)
+                job_details = workflow.get("jobs", {}).get("webwf", {}).get("with", {})
+                isbuild = job_details.get("isbuild")
+                ischeckmarx = job_details.get("ischeckmarx")
+                
+                print(f"Repo: {repo_name}, Workflow File: {workflow_file['name']}")
+                print(f"isbuild: {isbuild}")
+                print(f"ischeckmarx: {ischeckmarx}")
+                print("-----------------------------")
+            
+            except yaml.YAMLError as e:
+                print(f"Error parsing YAML file: {workflow_file['name']}, Error: {e}")
+
+        else:
+            print(f"Skipping non-YAML file: {workflow_file['name']}")
+
