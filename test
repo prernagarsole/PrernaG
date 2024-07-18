@@ -71,6 +71,7 @@ repos_data = json.loads(fetch_data(base_url))
 
 # List to collect results
 results = []
+found_conditions = False  # Flag to track if any conditions were found
 
 for repo in repos_data:
     repo_name = repo["name"]
@@ -88,43 +89,36 @@ for repo in repos_data:
                 file_content = fetch_data(file_download_url).decode("utf-8")
                 
                 # Check conditions in the file content
-                is_checkmarx_true = "is_checkmarx: 'True'" in file_content
-                is_checkmarx_false = "is_checkmarx: 'False'" in file_content
-                orgScan_nfcu = "orgScan: 'NFCU'" in file_content
-                
-                if is_checkmarx_true:
+                if "is_checkmarx: 'true'" in file_content.lower():
                     results.append({
                         "Repo": repo_name,
                         "Workflow File": workflow_file['name'],
                         "Condition": "is_checkmarx: 'True'"
                     })
-                elif "is_checkmarx:" not in file_content:
-                    results.append({
-                        "Repo": repo_name,
-                        "Workflow File": workflow_file['name'],
-                        "Condition": "is_checkmarx not present"
-                    })
-                elif is_checkmarx_false:
+                    found_conditions = True
+                elif "is_checkmarx: 'false'" in file_content.lower():
                     results.append({
                         "Repo": repo_name,
                         "Workflow File": workflow_file['name'],
                         "Condition": "is_checkmarx: 'False'"
                     })
+                    found_conditions = True
                 
-                if orgScan_nfcu:
+                if "orgScan: 'nfcu'" in file_content.lower():
                     results.append({
                         "Repo": repo_name,
                         "Workflow File": workflow_file['name'],
                         "Condition": "orgScan: 'NFCU'"
                     })
+                    found_conditions = True
     
     except Exception as e:
         print(f"Error fetching workflows for repo {repo_name}: {e}")
 
-# Check if results are empty
-if not results:
+# Check if any conditions were found
+if not found_conditions:
     print("No matching conditions found in any workflow files.")
-
-# Print results if any conditions were found
-for result in results:
-    print(f"Repo: {result['Repo']}, Workflow File: {result['Workflow File']}, Condition: {result['Condition']}")
+else:
+    # Print results if any conditions were found
+    for result in results:
+        print(f"Repo: {result['Repo']}, Workflow File: {result['Workflow File']}, Condition: {result['Condition']}")
