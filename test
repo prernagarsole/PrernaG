@@ -1,298 +1,44 @@
-import json
-import urllib.request
-import base64
-import yaml
+function Get-MemberIDFromName {
+    [CmdletBinding()]
+    Param (
+        [Parameter(Mandatory = $True, Position = 0)]
+        [Alias('D')]
+        [System.Collections.Generic.List[String]] $DisplayNames,
 
-# GitHub organization details
-org_name = "your_organization"  # replace with your organization name
+        [Parameter(Mandatory = $False)]
+        [Alias('R')]
+        [String] $SearchRoot = "ou=Useraccounts,dc=nann,dc=non",
 
-# GitHub personal access token
-token = "your_personal_access_token"  # replace with your personal access token
+        [Parameter(Mandatory = $False)]
+        [Alias('S')]
+        [ValidateSet("Base", "OneLevel", "Subtree")]
+        [String] $SearchScope = "Subtree"
+    )
 
-# GitHub API base URL
-base_url = f"https://api.github.com/orgs/{org_name}/repos"
+    $Results = @()
+    $Searcher = New-Object System.DirectoryServices.DirectorySearcher
+    $Searcher.SearchRoot = ([ADSI] "LDAP://$SearchRoot")
+    $Searcher.SearchScope = $SearchScope
+    $Searcher.PageSize = 5000
 
-# Headers for API request (authentication with token)
-headers = {
-    "Authorization": f"token {token}",
-    "Accept": "application/vnd.github.v3+json"
+    foreach ($DisplayName in $DisplayNames) {
+        Write-Output "Searching for display name: $DisplayName"
+        $Searcher.Filter = "(&(objectClass=user)(displayName=$DisplayName))"
+        $User = $Searcher.FindOne()
+        if ($Null -ne $User) {
+            Write-Output "Found user: $($User.Properties["employeeid"][0])"
+            $Results.Add($User.Properties["employeeid"][0])
+        } else {
+            Write-Output "User not found: $DisplayName"
+        }
+    }
+
+    return $Results
 }
 
-# Function to fetch data from GitHub API
-def fetch_data(url):
-    req = urllib.request.Request(url, headers=headers)
-    with urllib.request.urlopen(req) as response:
-        return response.read()
-
-# Fetch all repositories in the organization
-repos_data = json.loads(fetch_data(base_url))
-
-for repo in repos_data:
-    repo_name = repo["name"]
-    workflow_url = f"https://api.github.com/repos/{org_name}/{repo_name}/contents/.github/workflows"
-
-
-
-
-
-
-
-
-
-
-
-
-import json
-import urllib.request
-
-# GitHub organization details
-org_name = "your_organization"  # replace with your organization name
-
-# GitHub personal access token
-token = "your_personal_access_token"  # replace with your personal access token
-
-# GitHub API base URL
-base_url = f"https://api.github.com/orgs/{org_name}/repos"
-
-# Headers for API request (authentication with token)
-headers = {
-    "Authorization": f"token {token}",
-    "Accept": "application/vnd.github.v3+json"
+$thing = Import-Csv -Path "C:\Users\D3022\Downloads\org\DisplayNames.csv"
+foreach ($item in $thing) {
+    $DisplayNames = @($item.displayname)
+    $result = Get-MemberIDFromName -DisplayNames $DisplayNames
+    Write-Output "Results for $($item.displayname): $result"
 }
-
-# Function to fetch data from GitHub API
-def fetch_data(url):
-    req = urllib.request.Request(url, headers=headers)
-    with urllib.request.urlopen(req) as response:
-        return response.read()
-
-# Fetch all repositories in the organization
-repos_data = json.loads(fetch_data(base_url))
-
-# List to collect results
-results = []
-found_conditions = False  # Flag to track if any conditions were found
-
-for repo in repos_data:
-    repo_name = repo["name"]
-    workflow_url = f"https://api.github.com/repos/{org_name}/{repo_name}/contents/.github/workflows"
-    
-    # Fetch workflow files from the .github/workflows directory
-    try:
-        workflows_data = json.loads(fetch_data(workflow_url))
-        
-        for workflow_file in workflows_data:
-            if workflow_file["type"] == "file" and workflow_file["name"].endswith(".yml"):
-                file_download_url = workflow_file["download_url"]
-                
-                # Fetch the workflow file content
-                file_content = fetch_data(file_download_url).decode("utf-8")
-                
-                # Check conditions in the file content
-                if "is_checkmarx: 'true'" in file_content.lower():
-                    results.append({
-                        "Repo": repo_name,
-                        "Workflow File": workflow_file['name'],
-                        "Condition": "is_checkmarx: 'True'"
-                    })
-                    found_conditions = True
-                elif "is_checkmarx: 'false'" in file_content.lower():
-                    results.append({
-                        "Repo": repo_name,
-                        "Workflow File": workflow_file['name'],
-                        "Condition": "is_checkmarx: 'False'"
-                    })
-                    found_conditions = True
-                
-                if "orgScan: 'nfcu'" in file_content.lower():
-                    results.append({
-                        "Repo": repo_name,
-                        "Workflow File": workflow_file['name'],
-                        "Condition": "orgScan: 'NFCU'"
-                    })
-                    found_conditions = True
-    
-    except Exception as e:
-        print(f"Error fetching workflows for repo {repo_name}: {e}")
-
-# Check if any conditions were found
-if not found_conditions:
-    print("No matching conditions found in any workflow files.")
-else:
-    # Print results if any conditions were found
-    for result in results:
-        print(f"Repo: {result['Repo']}, Workflow File: {result['Workflow File']}, Condition: {result['Condition']}")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-import json
-import urllib.request
-from urllib.error import HTTPError
-
-# GitHub organization details
-org_name = "your_organization"  # replace with your organization name
-
-# GitHub personal access token
-token = "your_personal_access_token"  # replace with your personal access token
-
-# GitHub API base URL
-base_url = f"https://api.github.com/orgs/{org_name}/repos"
-
-# Headers for API request (authentication with token)
-headers = {
-    "Authorization": f"token {token}",
-    "Accept": "application/vnd.github.v3+json"
-}
-
-# Function to fetch data from GitHub API
-def fetch_data(url):
-    req = urllib.request.Request(url, headers=headers)
-    try:
-        with urllib.request.urlopen(req) as response:
-            return response.read()
-    except HTTPError as e:
-        print(f"HTTP Error {e.code}: {e.reason}")
-        return None
-
-# Fetch all repositories in the organization (handling pagination)
-repos_data = []
-page = 1
-while True:
-    url = f"{base_url}?page={page}&per_page=100"  # Fetch 100 repos per page (adjust per_page as needed)
-    response = fetch_data(url)
-    if not response:
-        break
-    page_repos = json.loads(response)
-    if not page_repos:
-        break
-    repos_data.extend(page_repos)
-    page += 1
-
-# Flag to track if any workflow files are found
-workflow_files_found = False
-
-# List to collect results
-results = []
-
-# Debugging output to track which repositories have workflow files
-print("Repositories with workflow files:")
-
-for repo in repos_data:
-    repo_name = repo["name"]
-    workflow_url = f"https://api.github.com/repos/{org_name}/{repo_name}/contents/.github/workflows"
-    
-    try:
-        # Fetch workflow files from the .github/workflows directory
-        workflows_response = fetch_data(workflow_url)
-        if not workflows_response:
-            continue
-        
-        workflows_data = json.loads(workflows_response)
-        
-        if workflows_data:
-            workflow_files_found = True
-            print(f"- {repo_name}")  # Print repo name when workflow files are found
-        
-        for workflow_file in workflows_data:
-            if workflow_file["type"] == "file" and workflow_file["name"].endswith(".yml"):
-                file_download_url = workflow_file["download_url"]
-                
-                # Fetch the workflow file content
-                file_content = fetch_data(file_download_url).decode("utf-8")
-                
-                # Check conditions in the file content
-                if "is_checkmarx: 'false'" in file_content:
-                    results.append({
-                        "Repo": repo_name,
-                        "Workflow File": workflow_file['name'],
-                        "Condition": "is_checkmarx: 'false' - Result: FALSE"
-                    })
-                
-                if "is_checkmarx: 'true'" in file_content:
-                    results.append({
-                        "Repo": repo_name,
-                        "Workflow File": workflow_file['name'],
-                        "Condition": "is_checkmarx: 'true' - Result: TRUE"
-                    })
-                
-                if "is_checkmarx:" not in file_content:
-                    results.append({
-                        "Repo": repo_name,
-                        "Workflow File": workflow_file['name'],
-                        "Condition": "is_checkmarx: not present - Result: TRUE (NOT PRESENT)"
-                    })
-                
-                if "orgScan: 'NFCU'" in file_content:
-                    results.append({
-                        "Repo": repo_name,
-                        "Workflow File": workflow_file['name'],
-                        "Condition": "orgScan: 'NFCU' - Result: TRUE"
-                    })
-                elif "orgScan: 'NFCU'" not in file_content:
-                    results.append({
-                        "Repo": repo_name,
-                        "Workflow File": workflow_file['name'],
-                        "Condition": "orgScan: 'NFCU' not present - Result: FALSE"
-                    })
-    
-    except Exception as e:
-        print(f"Error fetching workflows for repo {repo_name}: {e}")
-
-# Print message if no workflow files are found
-if not workflow_files_found:
-    print("No workflow files found in any repository.")
-
-# Check if results are empty
-if not results:
-    print("No matching conditions found in any workflow files.")
-
-# Print results if any conditions were found
-for result in results:
-    print(f"Repo: {result['Repo']}, Workflow File: {result['Workflow File']}, {result['Condition']}")
