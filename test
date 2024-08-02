@@ -1,1 +1,92 @@
 
+name: Renew Repository Secret Every 2 Minutes
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'  # This cron schedule runs every 5 minutes
+
+  workflow_dispatch:
+
+jobs:
+  renew-secret:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install required packages
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests cryptography
+
+      - name: Renew Repository Secret
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SECRET_NAME: ${{ secrets.SECRET_NAME }}
+          SECRET_VALUE: ${{ secrets.SECRET_VALUE }}
+          REPO_NAME: ${{ github.repository }}
+        run: |
+          python - <<EOF
+          import os
+          import base64
+          import requests
+          from cryptography.hazmat.primitives.asymmetric import rsa
+          from cryptography.hazmat.primitives import serialization
+          from cryptography.hazmat.primitives.asymmetric import padding
+          from cryptography.hazmat.primitives import hashes
+          import time
+
+          def update_secret():
+              token = os.environ["GITHUB_TOKEN"]
+              secret_name = os.environ["SECRET_NAME"]
+              secret_value = os.environ["SECRET_VALUE"]
+              repo_name = os.environ["REPO_NAME"]
+
+              owner, repo = repo_name.split('/')
+
+              headers = {"Authorization": f"Bearer {token}"}
+              url = f"https://api.github.com/repos/{owner}/{repo}/actions/secrets/public-key"
+              response = requests.get(url, headers=headers)
+              response.raise_for_status()
+              public_key_data = response.json()
+              public_key = public_key_data["key"]
+              key_id = public_key_data["key_id"]
+
+              public_key_bytes = base64.b64decode(public_key)
+              public_key = rsa.RSAPublicKey.load_pem_public_key(public_key_bytes)
+              encrypted_value = public_key.encrypt(
+                  secret_value.encode(),
+                  padding.OAEP(
+                      mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                      algorithm=hashes.SHA256(),
+                      label=None
+                  )
+              )
+
+              encrypted_value_base64 = base64.b64encode(encrypted_value).decode()
+
+              url = f"https://api.github.com/repos/{owner}/{repo}/actions/secrets/{secret_name}"
+              data = {
+                  "encrypted_value": encrypted_value_base64,
+                  "key_id": key_id
+              }
+              response = requests.put(url, headers=headers, json=data)
+              response.raise_for_status()
+
+              print(f"Secret {secret_name} renewed successfully.")
+
+          # Execute the update_secret function
+          update_secret()
+
+          # Sleep for 2 minutes to simulate periodic execution
+          time.sleep(120)
+
+          # Execute the update_secret function again after the sleep
+          update_secret()
+          EOF
