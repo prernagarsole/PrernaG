@@ -38,10 +38,23 @@ jobs:
           REPO_NAME = 'owner/repo'  # Update with your repository
 
           def update_secret(secret_name, secret_value):
-              headers = {"Authorization": f"Bearer {GITHUB_TOKEN}"}
-              url = f"https://api.github.com/repos/{REPO_NAME}/actions/secrets/public-key"
-              response = requests.get(url, headers=headers)
-              response.raise_for_status()
+              headers = {
+                  "Authorization": f"Bearer {GITHUB_TOKEN}",
+                  "Accept": "application/vnd.github.v3+json"
+              }
+              public_key_url = f"https://api.github.com/repos/{REPO_NAME}/actions/secrets/public-key"
+              
+              try:
+                  response = requests.get(public_key_url, headers=headers)
+                  response.raise_for_status()
+              except requests.exceptions.HTTPError as http_err:
+                  print(f"HTTP error occurred while fetching public key: {http_err}")
+                  print(f"Response content: {response.text}")
+                  return
+              except Exception as err:
+                  print(f"Other error occurred: {err}")
+                  return
+
               public_key_data = response.json()
               public_key = public_key_data["key"]
               key_id = public_key_data["key_id"]
@@ -59,13 +72,20 @@ jobs:
 
               encrypted_value_base64 = base64.b64encode(encrypted_value).decode()
 
-              url = f"https://api.github.com/repos/{REPO_NAME}/actions/secrets/{secret_name}"
+              update_secret_url = f"https://api.github.com/repos/{REPO_NAME}/actions/secrets/{secret_name}"
               data = {
                   "encrypted_value": encrypted_value_base64,
                   "key_id": key_id
               }
-              response = requests.put(url, headers=headers, json=data)
-              response.raise_for_status()
+              
+              try:
+                  response = requests.put(update_secret_url, headers=headers, json=data)
+                  response.raise_for_status()
+              except requests.exceptions.HTTPError as http_err:
+                  print(f"HTTP error occurred while updating secret: {http_err}")
+                  print(f"Response content: {response.text}")
+              except Exception as err:
+                  print(f"Other error occurred: {err}")
 
               print(f"Secret {secret_name} renewed successfully.")
 
