@@ -92,3 +92,21 @@ jobs:
           # Update the secret
           update_secret(SECRET_NAME, SECRET_VALUE)
           EOF
+
+
+
+
+
+name: Test Secret Update
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-secret:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Print Repository Secret
+        run: |
+          echo "The secret value is: ${{ secrets.your_secret_name }}"
