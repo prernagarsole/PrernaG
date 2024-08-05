@@ -204,6 +204,128 @@ new_secret_value = generate_secret_value()
 # Update the secret
 update_secret(SECRET_NAME, new_secret_value)
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+name: Renew Repository Secret
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'  # Runs every 5 minutes
+
+  workflow_dispatch:
+
+jobs:
+  renew-secret:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install required packages
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests cryptography
+
+      - name: Renew Repository Secret
+        run: |
+          python - <<EOF
+          import base64
+          import requests
+          import os
+          from cryptography.hazmat.primitives.asymmetric import rsa
+          from cryptography.hazmat.primitives import serialization
+          from cryptography.hazmat.primitives.asymmetric import padding
+          from cryptography.hazmat.primitives import hashes
+          import secrets
+
+          # Hardcoded values
+          GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
+          SECRET_NAME = 'your_secret_name'
+          REPO_NAME = 'owner/repo'  # Update with your repository
+
+          def generate_secret_value():
+              # Generate a random 32-byte secret value
+              return secrets.token_hex(32)
+
+          def update_secret(secret_name, secret_value):
+              headers = {
+                  "Authorization": f"Bearer {GITHUB_TOKEN}",
+                  "Accept": "application/vnd.github.v3+json"
+              }
+              public_key_url = f"https://api.github.com/repos/{REPO_NAME}/actions/secrets/public-key"
+              
+              try:
+                  response = requests.get(public_key_url, headers=headers)
+                  response.raise_for_status()
+              except requests.exceptions.HTTPError as http_err:
+                  print(f"HTTP error occurred while fetching public key: {http_err}")
+                  return
+              except Exception as err:
+                  print(f"Other error occurred: {err}")
+                  return
+
+              public_key_data = response.json()
+              public_key = public_key_data["key"]
+              key_id = public_key_data["key_id"]
+
+              public_key_bytes = base64.b64decode(public_key)
+              public_key = rsa.RSAPublicKey.load_pem_public_key(public_key_bytes)
+              encrypted_value = public_key.encrypt(
+                  secret_value.encode(),
+                  padding.OAEP(
+                      mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                      algorithm=hashes.SHA256(),
+                      label=None
+                  )
+              )
+
+              encrypted_value_base64 = base64.b64encode(encrypted_value).decode()
+
+              update_secret_url = f"https://api.github.com/repos/{REPO_NAME}/actions/secrets/{secret_name}"
+              data = {
+                  "encrypted_value": encrypted_value_base64,
+                  "key_id": key_id
+              }
+              
+              try:
+                  response = requests.put(update_secret_url, headers=headers, json=data)
+                  response.raise_for_status()
+              except requests.exceptions.HTTPError as http_err:
+                  print(f"HTTP error occurred while updating secret: {http_err}")
+              except Exception as err:
+                  print(f"Other error occurred: {err}")
+
+              print(f"Secret {secret_name} renewed successfully.")
+
+          # Generate a new secret value
+          new_secret_value = generate_secret_value()
+
+          # Update the secret
+          update_secret(SECRET_NAME, new_secret_value)
+          EOF
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+
 # Print the new secret value for verification
 print(f"New secret value: {new_secret_value}")
 
