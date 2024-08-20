@@ -1,7 +1,7 @@
 import json
 import urllib.request
 from urllib.error import HTTPError
-import pandas as pd
+import csv
 
 # GitHub organization details
 org_name = "your_organization_name"
@@ -86,8 +86,10 @@ for repo in repos_data:
                         "is_checkmarx": "not found"
                     })
 
-# Save the results to an Excel file
-df = pd.DataFrame(results)
-df.to_excel("workflow_results.xlsx", index=False)
+# Save the results to a CSV file
+with open("workflow_results.csv", mode="w", newline="") as file:
+    writer = csv.DictWriter(file, fieldnames=["Organization", "Repo", "Workflow File", "is_checkmarx"])
+    writer.writeheader()
+    writer.writerows(results)
 
-print("Results saved to workflow_results.xlsx")
+print("Results saved to workflow_results.csv")
