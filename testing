@@ -101,26 +101,19 @@ print("Results saved to workflow_results.csv")
 
 
 
+======
 
 
-
-
-
-
-
-
-
-
-import csv
 import json
 import urllib.request
 from urllib.error import HTTPError
+import csv
 
 # GitHub organization details
-org_name = "your_organization_name"
+org_name = "your-org-name"  # Replace with your GitHub organization name
 
 # GitHub personal access token
-token = "your_personal_access_token"
+token = "your-github-token"  # Replace with your GitHub personal access token
 
 # GitHub API base URL
 base_url = f"https://api.github.com/orgs/{org_name}/repos"
@@ -149,16 +142,18 @@ while True:
     response = fetch_data(url)
     if not response:
         break
-    repos_page = json.loads(response)
-    if not repos_page:
+    repos = json.loads(response)
+    if not repos:
         break
-    repos_data.extend(repos_page)
+    repos_data.extend(repos)
     page += 1
 
 # List to collect results
 results = []
 
-# Process each repository
+# Debugging output to track which repositories have workflow files
+print("Repositories with workflow files:")
+
 for repo in repos_data:
     repo_name = repo["name"]
     workflow_url = f"https://api.github.com/repos/{org_name}/{repo_name}/contents/.github/workflows"
@@ -169,38 +164,48 @@ for repo in repos_data:
         continue
     
     workflows_data = json.loads(workflows_response)
+    if workflows_data:
+        print(f"- {repo_name}")
+    
+    # Check each workflow file for specific content
     for workflow_file in workflows_data:
         if workflow_file["type"] == "file" and workflow_file["name"].endswith(".yml"):
-            if workflow_file["name"] == "datapower.yml":
-                continue
-            
             file_download_url = workflow_file["download_url"]
-            file_content = fetch_data(file_download_url)
-            if not file_content:
-                continue
-            file_content = file_content.decode("utf-8")
             
-            # Check for specific conditions in the workflow file content
-            if "is_checkmarx: false" in file_content or "is_checkmarx: true" in file_content or "orfScan: false" in file_content or "orfScan: true" in file_content:
-                result = {
-                    "Repo": repo_name,
-                    "Workflow File": workflow_file["name"],
-                    "is_checkmarx": "false" if "is_checkmarx: false" in file_content else "true" if "is_checkmarx: true" in file_content else "not present",
-                    "orfScan": "false" if "orfScan: false" in file_content else "true" if "orfScan: true" in file_content else "not present"
-                }
-                results.append(result)
+            # Fetch the workflow file content
+            file_content = fetch_data(file_download_url).decode("utf-8")
+            
+            # Determine the 'is_checkmarx' value
+            is_checkmarx = "not present"
+            if "is_checkmarx:" in file_content:
+                is_checkmarx = "true" if "is_checkmarx: true" in file_content else "false"
+            
+            # Append results
+            results.append({
+                "Org Name": org_name,
+                "Repo": repo_name,
+                "Workflow File": workflow_file["name"],
+                "Org Scan": "true" if "org_scan" in file_content and "org_scan: true" in file_content else "false",
+                "is_checkmarx": is_checkmarx
+            })
 
-                # Print the results
-                print(f"Repository: {repo_name}, Workflow File: {workflow_file['name']}, is_checkmarx: {result['is_checkmarx']}, orfScan: {result['orfScan']}")
-
-# Save results to CSV
-with open('workflow_results.csv', 'w', newline='') as csvfile:
-    fieldnames = ["Repo", "Workflow File", "is_checkmarx", "orfScan"]
-    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-    
+# Write results to a CSV file
+csv_file = "workflow_files_report.csv"
+with open(csv_file, mode='w', newline='', encoding='utf-8') as file:
+    writer = csv.DictWriter(file, fieldnames=["Org Name", "Repo", "Workflow File", "Org Scan", "is_checkmarx"])
     writer.writeheader()
     for result in results:
         writer.writerow(result)
 
-print("Results saved to workflow_results.csv")
+print(f"Results have been written to {csv_file}")
+
+
+
+
+
+
+
+
+
+
 
