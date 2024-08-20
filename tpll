@@ -1,0 +1,129 @@
+import json
+import csv
+import urllib.request
+from urllib.error import HTTPError
+
+# GitHub base API URL
+base_url = "https://api.github.com"
+
+# GitHub personal access token
+token = "iiiiiii"
+
+# Headers for API request (authentication with token)
+headers = {
+    "Authorization": f"token {token}",
+    "Accept": "application/vnd.github.v3+json"
+}
+
+# Function to fetch data from GitHub API
+def fetch_data(url):
+    req = urllib.request.Request(url, headers=headers)
+    try:
+        with urllib.request.urlopen(req) as response:
+            return response.read()
+    except HTTPError as e:
+        print(f"HTTP Error {e.code}: {e.reason}")
+        return None
+
+# Function to get all organizations starting with "TPO-"
+def get_tpo_organizations():
+    orgs = []
+    page = 1
+    while True:
+        url = f"{base_url}/organizations?page={page}&per_page=100"  # Adjust per_page as needed
+        response = fetch_data(url)
+        if not response:
+            break
+        page_orgs = json.loads(response)
+        if not page_orgs:
+            break
+        for org in page_orgs:
+            if org["login"].startswith("TPO-"):
+                orgs.append(org["login"])
+        page += 1
+    return orgs
+
+# Function to process repositories and write to CSV
+def process_repos(org_name):
+    # Fetch all repositories in the organization (handling pagination)
+    repos_data = []
+    page = 1
+    while True:
+        url = f"{base_url}/orgs/{org_name}/repos?page={page}&per_page=100"  # Fetch 100 repos per page
+        response = fetch_data(url)
+        if not response:
+            break
+        page_repos = json.loads(response)
+        if not page_repos:
+            break
+        repos_data.extend(page_repos)
+        page += 1
+
+    # Loop through each repo
+    for repo in repos_data:
+        repo_name = repo["name"]
+
+        workflow_url = f"{base_url}/repos/{org_name}/{repo_name}/contents/.github/workflows"
+
+        # Fetch workflow files from the .github/workflows directory
+        workflows_response = fetch_data(workflow_url)
+        if not workflows_response:
+            continue
+
+        workflows_data = json.loads(workflows_response)
+        for workflow_file in workflows_data:
+            if workflow_file["type"] == "file" and workflow_file["name"].endswith(".yml"):
+                file_download_url = workflow_file["download_url"]
+
+                # Fetch the workflow file content
+                file_content = fetch_data(file_download_url).decode("utf-8")
+
+                is_checkmarx = None
+                orgScan = None
+
+                if "is_checkmarx: 'false'" in file_content:
+                    is_checkmarx = "FALSE"
+                elif "is_checkmarx: 'true'" in file_content:
+                    is_checkmarx = "TRUE"
+                else:
+                    is_checkmarx = "NOT PRESENT"
+
+                if "orgScan: 'NFCU'" in file_content:
+                    orgScan = "TRUE"
+                else:
+                    orgScan = "FALSE"
+
+                row = {
+                    "orgname": org_name,
+                    "reponame": repo_name,
+                    "workflowname": workflow_file["name"],
+                    "is_checkmarx": is_checkmarx,
+                    "orgScan": orgScan
+                }
+
+                # Write to the appropriate CSV based on the workflow name
+                if workflow_file["name"] in ["datapower.yml", "datapowerpolicy.yml"]:
+                    writer1.writerow(row)
+                else:
+                    writer2.writerow(row)
+
+# CSV file initialization
+csv_headers = ["orgname", "reponame", "workflowname", "is_checkmarx", "orgScan"]
+
+with open("workflow_files_datapower.csv", "w", newline='') as csvfile1, \
+     open("workflow_files_other.csv", "w", newline='') as csvfile2:
+
+    writer1 = csv.DictWriter(csvfile1, fieldnames=csv_headers)
+    writer2 = csv.DictWriter(csvfile2, fieldnames=csv_headers)
+
+    writer1.writeheader()
+    writer2.writeheader()
+
+    # Get all organizations starting with "TPO-"
+    tpo_orgs = get_tpo_organizations()
+
+    # Process each organization
+    for org_name in tpo_orgs:
+        process_repos(org_name)
+
+print("Data has been written to workflow_files_datapower.csv and workflow_files_other.csv")
