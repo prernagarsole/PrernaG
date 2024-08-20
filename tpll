@@ -14,6 +14,14 @@ headers = {
     "Accept": "application/vnd.github.v3+json"
 }
 
+# Hardcoded list of TPO organizations
+tpo_organizations = [
+    "TPO-Org1", "TPO-Org2", "TPO-Org3", "TPO-Org4", "TPO-Org5",
+    "TPO-Org6", "TPO-Org7", "TPO-Org8", "TPO-Org9", "TPO-Org10",
+    "TPO-Org11", "TPO-Org12", "TPO-Org13", "TPO-Org14", "TPO-Org15",
+    "TPO-Org16", "TPO-Org17", "TPO-Org18", "TPO-Org19", "TPO-Org20"
+]
+
 # Function to fetch data from GitHub API
 def fetch_data(url):
     req = urllib.request.Request(url, headers=headers)
@@ -26,40 +34,6 @@ def fetch_data(url):
     except HTTPError as e:
         print(f"HTTP Error [{e.code}]: {e.reason}")
         return None
-
-# Function to get TPO- organizations
-def get_tpo_organizations():
-    orgs_url = f"{base_url}/user/orgs"
-    orgs_data = fetch_data(orgs_url)
-    
-    if not orgs_data:
-        print("Failed to retrieve organizations or no organizations found.")
-        return []
-
-    try:
-        organizations = json.loads(orgs_data.decode('utf-8'))
-    except json.JSONDecodeError as e:
-        print(f"JSON Decode Error: {e}")
-        return []
-
-    tpo_orgs = []
-    
-    for org in organizations:
-        print(f"Checking organization: {org['login']}")
-        if org["login"].startswith("TPO-"):
-            print(f"Matched TPO- organization: {org['login']}")
-            tpo_orgs.append(org["login"])
-    
-    if not tpo_orgs:
-        print("No TPO- organizations found.")
-    else:
-        print(f"Found TPO organizations: {tpo_orgs}")
-    
-    return tpo_orgs
-
-# Fetching TPO organizations
-tpo_organizations = get_tpo_organizations()
-print(f"Final TPO organizations: {tpo_organizations}")
 
 # Function to fetch repositories for each TPO organization
 def fetch_repositories(org_name):
@@ -144,6 +118,7 @@ def check_workflows(org_name):
 
 # Fetch and check workflows for each TPO organization
 for org in tpo_organizations:
+    print(f"Processing organization: {org}")
     results = check_workflows(org)
     # Process results or save to CSV as needed
     print(f"Workflow results for {org}: {results}")
