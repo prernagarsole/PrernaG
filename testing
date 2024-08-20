@@ -1,0 +1,93 @@
+import json
+import urllib.request
+from urllib.error import HTTPError
+import pandas as pd
+
+# GitHub organization details
+org_name = "your_organization_name"
+
+# GitHub personal access token
+token = "your_personal_access_token"
+
+# GitHub API base URL
+base_url = f"https://api.github.com/orgs/{org_name}/repos"
+
+# Headers for API request (authentication with token)
+headers = {
+    "Authorization": f"token {token}",
+    "Accept": "application/vnd.github.v3+json"
+}
+
+# Function to fetch data from GitHub API
+def fetch_data(url):
+    req = urllib.request.Request(url, headers=headers)
+    try:
+        with urllib.request.urlopen(req) as response:
+            return response.read()
+    except HTTPError as e:
+        print(f"HTTP Error {e.code}: {e.reason}")
+        return None
+
+# Fetch all repositories in the organization (handling pagination)
+repos_data = []
+page = 1
+while True:
+    url = f"{base_url}?page={page}&per_page=100"
+    response = fetch_data(url)
+    if response is None:
+        break
+    repos_data.extend(json.loads(response))
+    if len(json.loads(response)) < 100:
+        break
+    page += 1
+
+# List to collect results
+results = []
+
+# Debugging output to track which repositories have workflow files
+print("Repositories with workflow files:")
+
+for repo in repos_data:
+    repo_name = repo["name"]
+    workflow_url = f"https://api.github.com/repos/{org_name}/{repo_name}/contents/.github/workflows"
+    
+    # Fetch workflow files from the .github/workflows directory
+    workflows_response = fetch_data(workflow_url)
+    if not workflows_response:
+        continue
+    
+    workflows_data = json.loads(workflows_response)
+    if workflows_data:
+        print(f"- {repo_name}")  # Print repo name when workflow files are found
+
+        for workflow_file in workflows_data:
+            if workflow_file["type"] == "file" and workflow_file["name"].endswith(".yml"):
+                if workflow_file["name"] == "data.yml" or workflow_file["name"] == "datapower.yml":
+                    continue  # Exclude data.yml and datapower.yml
+
+                file_download_url = workflow_file["download_url"]
+                
+                # Fetch the workflow file content
+                file_content = fetch_data(file_download_url).decode("utf-8")
+                
+                # Check conditions in the file content
+                if "is_checkmarx: false" in file_content:
+                    results.append({
+                        "Organization": org_name,
+                        "Repo": repo_name,
+                        "Workflow File": workflow_file['name'],
+                        "is_checkmarx": "false"
+                    })
+                elif "is_checkmarx:" not in file_content:
+                    results.append({
+                        "Organization": org_name,
+                        "Repo": repo_name,
+                        "Workflow File": workflow_file['name'],
+                        "is_checkmarx": "not found"
+                    })
+
+# Save the results to an Excel file
+df = pd.DataFrame(results)
+df.to_excel("workflow_results.xlsx", index=False)
+
+print("Results saved to workflow_results.xlsx")
