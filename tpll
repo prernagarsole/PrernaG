@@ -3,19 +3,7 @@ import urllib.request
 import csv
 from urllib.error import HTTPError
 
-# GitHub personal access token
-token = "YOUR_GITHUB_TOKEN"  # Replace with your actual token
-
-# GitHub API base URL
-base_url = "https://api.github.com"
-
-# Headers for API request (authentication with token)
-headers = {
-    "Authorization": f"token {token}",
-    "Accept": "application/vnd.github.v3+json"
-}
-
-# Hardcoded list of TPO organizations
+# GitHub organization details
 tpo_organizations = [
     "TPO-Org1", "TPO-Org2", "TPO-Org3", "TPO-Org4", "TPO-Org5",
     "TPO-Org6", "TPO-Org7", "TPO-Org8", "TPO-Org9", "TPO-Org10",
@@ -23,68 +11,95 @@ tpo_organizations = [
     "TPO-Org16", "TPO-Org17", "TPO-Org18", "TPO-Org19", "TPO-Org20"
 ]
 
+# GitHub personal access token
+token = "iiiiiii"  # Replace with your actual token
+
+# Headers for API request (authentication with token)
+headers = {
+    "Authorization": f"token {token}",
+    "Accept": "application/vnd.github.v3+json"
+}
+
 # Function to fetch data from GitHub API
 def fetch_data(url):
     req = urllib.request.Request(url, headers=headers)
     try:
         with urllib.request.urlopen(req) as response:
-            data = response.read()
-            return data
+            return response.read()
     except HTTPError as e:
         print(f"HTTP Error [{e.code}]: {e.reason}")
         return None
 
-# Function to fetch repositories for each TPO organization
+# Function to fetch all repositories in the organization (handling pagination)
 def fetch_repositories(org_name):
     repos_url = f"https://api.github.com/orgs/{org_name}/repos?per_page=100"
-    repos_data = fetch_data(repos_url)
-    
-    if not repos_data:
-        return []
-
-    try:
-        repositories = json.loads(repos_data.decode('utf-8'))
-    except json.JSONDecodeError as e:
-        print(f"JSON Decode Error: {e}")
-        return []
-
-    return repositories
+    repos_data = []
+    page = 1
+    while True:
+        url = f"{repos_url}&page={page}"
+        response = fetch_data(url)
+        if not response:
+            break
+        page_repos = json.loads(response.decode('utf-8'))
+        if not page_repos:
+            break
+        repos_data.extend(page_repos)
+        page += 1
+    return repos_data
 
 # Function to check workflows in repositories
 def check_workflows(org_name):
     repos = fetch_repositories(org_name)
     workflow_results_with_datapower = []
     workflow_results_other_than_datapower = []
-    
+
+    print("Repositories with workflow files:")
     for repo in repos:
         repo_name = repo["name"]
-        print(f"Checking repository: {repo_name}")
-        
+        print(f"- {repo_name}")
+
         workflow_url = f"https://api.github.com/repos/{org_name}/{repo_name}/contents/.github/workflows"
         workflows_response = fetch_data(workflow_url)
-        
+
         if not workflows_response:
             continue
-        
+
         try:
             workflows_data = json.loads(workflows_response.decode('utf-8'))
         except json.JSONDecodeError as e:
             print(f"JSON Decode Error: {e}")
             continue
-        
+
         for workflow_file in workflows_data:
             if workflow_file["type"] == "file" and workflow_file["name"].endswith(".yml"):
                 file_download_url = workflow_file["download_url"]
                 file_content = fetch_data(file_download_url).decode('utf-8')
-                
+
+                # Initialize variables to hold checkmarx and orgscan conditions
+                is_checkmarx = "NOT PRESENT"
+                org_scan = "NOT PRESENT"
+
+                if "is_checkmarx: 'false'" in file_content:
+                    is_checkmarx = "FALSE"
+                elif "is_checkmarx: 'true'" in file_content:
+                    is_checkmarx = "TRUE"
+
+                if "orgScan: 'NFCU'" in file_content:
+                    org_scan = "TRUE"
+                elif "orgScan: 'NECU'" in file_content:
+                    org_scan = "TRUE"
+                elif "orgScan: " not in file_content:
+                    org_scan = "FALSE"
+
                 result = {
                     "Org": org_name,
                     "Repo": repo_name,
                     "Workflow File": workflow_file["name"],
-                    "is_checkmarx": "TRUE" if "is_checkmarx: 'true'" in file_content else "FALSE",
-                    "orgScan": "TRUE" if "orgScan: 'NFCU'" in file_content else "FALSE"
+                    "is_checkmarx": is_checkmarx,
+                    "orgScan": org_scan
                 }
-                
+
+                # Determine which CSV to write to based on file names
                 if "datapower.yml" in workflow_file["name"] or "datapowerpolicy.yml" in workflow_file["name"]:
                     workflow_results_with_datapower.append(result)
                 else:
