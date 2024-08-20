@@ -6,7 +6,7 @@ from urllib.error import HTTPError
 token = "YOUR_GITHUB_TOKEN"  # Replace with your actual token
 
 # GitHub API base URL
-base_url = "https://api.github.com/orgs"
+base_url = "https://api.github.com"
 
 # Headers for API request (authentication with token)
 headers = {
@@ -21,7 +21,7 @@ def fetch_data(url):
         with urllib.request.urlopen(req) as response:
             data = response.read()
             # Debugging: Print raw data
-            print(f"Raw response data: {data.decode('utf-8')}")
+            print(f"Raw response data from {url}: {data.decode('utf-8')}")
             return data
     except HTTPError as e:
         print(f"HTTP Error [{e.code}]: {e.reason}")
@@ -50,14 +50,18 @@ def get_tpo_organizations():
             print(f"Matched TPO- organization: {org['login']}")
             tpo_orgs.append(org["login"])
     
-    print(f"Found TPO organizations: {tpo_orgs}")
+    if not tpo_orgs:
+        print("No TPO- organizations found.")
+    else:
+        print(f"Found TPO organizations: {tpo_orgs}")
+    
     return tpo_orgs
 
 # Fetching TPO organizations
 tpo_organizations = get_tpo_organizations()
 print(f"Final TPO organizations: {tpo_organizations}")
 
-# Fetch repositories for each TPO organization
+# Function to fetch repositories for each TPO organization
 def fetch_repositories(org_name):
     repos_url = f"https://api.github.com/orgs/{org_name}/repos?per_page=100"
     repos_data = fetch_data(repos_url)
