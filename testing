@@ -95,3 +95,112 @@ with open("workflow_results.csv", mode="w", newline="") as file:
     writer.writerows(results)
 
 print("Results saved to workflow_results.csv")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+import csv
+import json
+import urllib.request
+from urllib.error import HTTPError
+
+# GitHub organization details
+org_name = "your_organization_name"
+
+# GitHub personal access token
+token = "your_personal_access_token"
+
+# GitHub API base URL
+base_url = f"https://api.github.com/orgs/{org_name}/repos"
+
+# Headers for API request (authentication with token)
+headers = {
+    "Authorization": f"token {token}",
+    "Accept": "application/vnd.github.v3+json"
+}
+
+# Function to fetch data from GitHub API
+def fetch_data(url):
+    req = urllib.request.Request(url, headers=headers)
+    try:
+        with urllib.request.urlopen(req) as response:
+            return response.read()
+    except HTTPError as e:
+        print(f"HTTP Error {e.code}: {e.reason}")
+        return None
+
+# Fetch all repositories in the organization (handling pagination)
+repos_data = []
+page = 1
+while True:
+    url = f"{base_url}?page={page}&per_page=100"
+    response = fetch_data(url)
+    if not response:
+        break
+    repos_page = json.loads(response)
+    if not repos_page:
+        break
+    repos_data.extend(repos_page)
+    page += 1
+
+# List to collect results
+results = []
+
+# Process each repository
+for repo in repos_data:
+    repo_name = repo["name"]
+    workflow_url = f"https://api.github.com/repos/{org_name}/{repo_name}/contents/.github/workflows"
+    
+    # Fetch workflow files from the .github/workflows directory
+    workflows_response = fetch_data(workflow_url)
+    if not workflows_response:
+        continue
+    
+    workflows_data = json.loads(workflows_response)
+    for workflow_file in workflows_data:
+        if workflow_file["type"] == "file" and workflow_file["name"].endswith(".yml"):
+            if workflow_file["name"] == "datapower.yml":
+                continue
+            
+            file_download_url = workflow_file["download_url"]
+            file_content = fetch_data(file_download_url)
+            if not file_content:
+                continue
+            file_content = file_content.decode("utf-8")
+            
+            # Check for specific conditions in the workflow file content
+            if "is_checkmarx: false" in file_content or "is_checkmarx: true" in file_content or "orfScan: false" in file_content or "orfScan: true" in file_content:
+                result = {
+                    "Repo": repo_name,
+                    "Workflow File": workflow_file["name"],
+                    "is_checkmarx": "false" if "is_checkmarx: false" in file_content else "true" if "is_checkmarx: true" in file_content else "not present",
+                    "orfScan": "false" if "orfScan: false" in file_content else "true" if "orfScan: true" in file_content else "not present"
+                }
+                results.append(result)
+
+                # Print the results
+                print(f"Repository: {repo_name}, Workflow File: {workflow_file['name']}, is_checkmarx: {result['is_checkmarx']}, orfScan: {result['orfScan']}")
+
+# Save results to CSV
+with open('workflow_results.csv', 'w', newline='') as csvfile:
+    fieldnames = ["Repo", "Workflow File", "is_checkmarx", "orfScan"]
+    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+    
+    writer.writeheader()
+    for result in results:
+        writer.writerow(result)
+
+print("Results saved to workflow_results.csv")
+
