@@ -1,5 +1,6 @@
 import json
 import urllib.request
+import csv
 from urllib.error import HTTPError
 
 # GitHub personal access token
@@ -28,8 +29,6 @@ def fetch_data(url):
     try:
         with urllib.request.urlopen(req) as response:
             data = response.read()
-            # Debugging: Print raw data
-            print(f"Raw response data from {url}: {data.decode('utf-8')}")
             return data
     except HTTPError as e:
         print(f"HTTP Error [{e.code}]: {e.reason}")
@@ -54,7 +53,8 @@ def fetch_repositories(org_name):
 # Function to check workflows in repositories
 def check_workflows(org_name):
     repos = fetch_repositories(org_name)
-    workflow_results = []
+    workflow_results_with_datapower = []
+    workflow_results_other_than_datapower = []
     
     for repo in repos:
         repo_name = repo["name"]
@@ -77,48 +77,34 @@ def check_workflows(org_name):
                 file_download_url = workflow_file["download_url"]
                 file_content = fetch_data(file_download_url).decode('utf-8')
                 
-                if "is_checkmarx: 'false'" in file_content:
-                    workflow_results.append({
-                        "Org": org_name,
-                        "Repo": repo_name,
-                        "Workflow File": workflow_file["name"],
-                        "Condition": "is_checkmarx: 'false' - Result: FALSE"
-                    })
-                elif "is_checkmarx: 'true'" in file_content:
-                    workflow_results.append({
-                        "Org": org_name,
-                        "Repo": repo_name,
-                        "Workflow File": workflow_file["name"],
-                        "Condition": "is_checkmarx: 'true' - Result: TRUE"
-                    })
+                result = {
+                    "Org": org_name,
+                    "Repo": repo_name,
+                    "Workflow File": workflow_file["name"],
+                    "is_checkmarx": "TRUE" if "is_checkmarx: 'true'" in file_content else "FALSE",
+                    "orgScan": "TRUE" if "orgScan: 'NFCU'" in file_content else "FALSE"
+                }
+                
+                if "datapower.yml" in workflow_file["name"] or "datapowerpolicy.yml" in workflow_file["name"]:
+                    workflow_results_with_datapower.append(result)
                 else:
-                    workflow_results.append({
-                        "Org": org_name,
-                        "Repo": repo_name,
-                        "Workflow File": workflow_file["name"],
-                        "Condition": "is_checkmarx: not present - Result: TRUE (NOT PRESENT)"
-                    })
+                    workflow_results_other_than_datapower.append(result)
 
-                if "orgScan: 'NFCU'" in file_content:
-                    workflow_results.append({
-                        "Org": org_name,
-                        "Repo": repo_name,
-                        "Workflow File": workflow_file["name"],
-                        "Condition": "orgScan: 'NFCU' - Result: TRUE"
-                    })
-                elif "orgScan: 'NFCU'" not in file_content:
-                    workflow_results.append({
-                        "Org": org_name,
-                        "Repo": repo_name,
-                        "Workflow File": workflow_file["name"],
-                        "Condition": "orgScan: 'NFCU' not present - Result: FALSE"
-                    })
+    return workflow_results_with_datapower, workflow_results_other_than_datapower
 
-    return workflow_results
+# Save results to CSV files
+def save_to_csv(filename, data):
+    with open(filename, 'w', newline='', encoding='utf-8') as file:
+        writer = csv.DictWriter(file, fieldnames=["Org", "Repo", "Workflow File", "is_checkmarx", "orgScan"])
+        writer.writeheader()
+        writer.writerows(data)
 
 # Fetch and check workflows for each TPO organization
 for org in tpo_organizations:
     print(f"Processing organization: {org}")
-    results = check_workflows(org)
-    # Process results or save to CSV as needed
-    print(f"Workflow results for {org}: {results}")
+    results_with_datapower, results_other_than_datapower = check_workflows(org)
+    save_to_csv('workflow_files_with_datapower.csv', results_with_datapower)
+    save_to_csv('workflow_files_other_than_datapower.csv', results_other_than_datapower)
+    print(f"Results saved for organization: {org}")
+
+print("Script completed.")
