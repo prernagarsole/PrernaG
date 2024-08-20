@@ -20,12 +20,13 @@ headers = {
 
 # Function to fetch data from GitHub API
 def fetch_data(url):
+    print(f"Fetching data from: {url}")
     req = urllib.request.Request(url, headers=headers)
     try:
         with urllib.request.urlopen(req) as response:
             return response.read()
     except HTTPError as e:
-        print(f"HTTP Error {e.code}: {e.reason}")
+        print(f"HTTP Error {e.code}: {e.reason} - {url}")
         return None
 
 # Fetch all repositories in the organization (handling pagination)
@@ -68,23 +69,24 @@ for repo in repos_data:
                 file_download_url = workflow_file["download_url"]
                 
                 # Fetch the workflow file content
-                file_content = fetch_data(file_download_url).decode("utf-8")
-                
-                # Check conditions in the file content
-                if "is_checkmarx: false" in file_content:
-                    results.append({
-                        "Organization": org_name,
-                        "Repo": repo_name,
-                        "Workflow File": workflow_file['name'],
-                        "is_checkmarx": "false"
-                    })
-                elif "is_checkmarx:" not in file_content:
-                    results.append({
-                        "Organization": org_name,
-                        "Repo": repo_name,
-                        "Workflow File": workflow_file['name'],
-                        "is_checkmarx": "not found"
-                    })
+                file_content = fetch_data(file_download_url)
+                if file_content:
+                    file_content = file_content.decode("utf-8")
+                    # Check conditions in the file content
+                    if "is_checkmarx: false" in file_content:
+                        results.append({
+                            "Organization": org_name,
+                            "Repo": repo_name,
+                            "Workflow File": workflow_file['name'],
+                            "is_checkmarx": "false"
+                        })
+                    elif "is_checkmarx:" not in file_content:
+                        results.append({
+                            "Organization": org_name,
+                            "Repo": repo_name,
+                            "Workflow File": workflow_file['name'],
+                            "is_checkmarx": "not found"
+                        })
 
 # Save the results to a CSV file
 with open("workflow_results.csv", mode="w", newline="") as file:
