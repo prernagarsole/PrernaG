@@ -30,10 +30,13 @@ def get_tpo_organizations():
         return []
 
     organizations = json.loads(orgs_data)
-    return [org["login"] for org in organizations if org["login"].startswith("TPO-")]
+    tpo_orgs = [org["login"] for org in organizations if org["login"].startswith("TPO-")]
+    print(f"Found TPO organizations: {tpo_orgs}")
+    return tpo_orgs
 
 # Function to process repositories and find workflow files
 def process_repos(org_name):
+    print(f"Processing repositories for organization: {org_name}")
     base_url = f"https://api.github.com/orgs/{org_name}/repos"
     repos_data = []
     page = 1
@@ -49,6 +52,7 @@ def process_repos(org_name):
         repos_data.extend(page_repos)
         page += 1
 
+    print(f"Found {len(repos_data)} repositories in {org_name}")
     return repos_data
 
 # Function to check workflow files for conditions and save results to CSVs
@@ -91,6 +95,9 @@ def check_workflow_files(org_name, repos_data):
                     "orgScan": org_scan
                 })
 
+    print(f"Writing {len(workflow_files_datapower)} Datapower workflow files to CSV.")
+    print(f"Writing {len(workflow_files_other)} other workflow files to CSV.")
+
     # Save results to CSVs
     with open("workflow_files_datapower.csv", "w", newline='') as csvfile1, \
          open("workflow_files_other.csv", "w", newline='') as csvfile2:
@@ -106,8 +113,16 @@ def check_workflow_files(org_name, repos_data):
 # Main script execution
 def main():
     tpo_organizations = get_tpo_organizations()
+    if not tpo_organizations:
+        print("No organizations found starting with 'TPO-'")
+        return
+
     for org_name in tpo_organizations:
         repos_data = process_repos(org_name)
+        if not repos_data:
+            print(f"No repositories found for organization: {org_name}")
+            continue
+
         check_workflow_files(org_name, repos_data)
 
 if __name__ == "__main__":
