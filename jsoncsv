@@ -1,13 +1,14 @@
 import json
 import csv
+import os
 
 def json_to_csv(json_file, csv_file):
-    # Open the JSON file and load the data
-    with open(json_file, 'r') as file:
+    # Open the JSON file with utf-8 encoding and load the data
+    with open(json_file, 'r', encoding='utf-8') as file:
         data = json.load(file)
     
     # Open the CSV file for writing
-    with open(csv_file, 'w', newline='') as file:
+    with open(csv_file, 'w', newline='', encoding='utf-8') as file:
         writer = csv.writer(file)
         
         # Check if data is a list of dictionaries
@@ -30,7 +31,13 @@ def json_to_csv(json_file, csv_file):
     
     print(f"Data successfully written to {csv_file}")
 
-# Example usage
-json_file = 'input.json'
-csv_file = 'output.csv'
+# Example usage:
+# Get the Downloads directory path
+downloads_path = os.path.join(os.path.expanduser("~"), "Downloads")
+
+# Specify the input JSON file and output CSV file paths
+json_file = os.path.join(downloads_path, 'data.json')   # Replace 'data.json' with your actual file name
+csv_file = os.path.join(downloads_path, 'output.csv')
+
+# Convert JSON to CSV
 json_to_csv(json_file, csv_file)
