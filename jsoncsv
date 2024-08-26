@@ -1,0 +1,36 @@
+import json
+import csv
+
+def json_to_csv(json_file, csv_file):
+    # Open the JSON file and load the data
+    with open(json_file, 'r') as file:
+        data = json.load(file)
+    
+    # Open the CSV file for writing
+    with open(csv_file, 'w', newline='') as file:
+        writer = csv.writer(file)
+        
+        # Check if data is a list of dictionaries
+        if isinstance(data, list):
+            # Extract keys (headers) from the first dictionary
+            headers = data[0].keys()
+            writer.writerow(headers)  # Write headers to CSV
+
+            # Write each dictionary's values to the CSV
+            for entry in data:
+                writer.writerow(entry.values())
+
+        # If JSON data is a single dictionary, handle it
+        elif isinstance(data, dict):
+            headers = data.keys()
+            writer.writerow(headers)
+            writer.writerow(data.values())
+        else:
+            raise ValueError("JSON data is neither a list of dictionaries nor a single dictionary.")
+    
+    print(f"Data successfully written to {csv_file}")
+
+# Example usage
+json_file = 'input.json'
+csv_file = 'output.csv'
+json_to_csv(json_file, csv_file)
