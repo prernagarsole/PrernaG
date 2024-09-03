@@ -1,0 +1,45 @@
+import http.client
+import json
+import csv
+
+# Replace with your GitHub personal access token and enterprise slug
+token = 'YOUR_GITHUB_PERSONAL_ACCESS_TOKEN'
+enterprise_slug = 'YOUR_ENTERPRISE_SLUG'
+
+# GitHub API URL for listing organizations in an enterprise
+url = f'/enterprises/{enterprise_slug}/organizations'
+
+# Set up connection and headers
+connection = http.client.HTTPSConnection('api.github.com')
+headers = {
+    'Authorization': f'token {token}',
+    'User-Agent': 'Python Script',  # GitHub requires a user-agent
+    'Accept': 'application/vnd.github.v3+json'
+}
+
+# Make the request to GitHub API
+connection.request('GET', url, headers=headers)
+response = connection.getresponse()
+
+# Check if the request was successful
+if response.status == 200:
+    data = response.read().decode('utf-8')
+    organizations = json.loads(data)
+    
+    # Prepare data for CSV
+    csv_data = [["Organization Name", "URL"]]
+    for org in organizations:
+        csv_data.append([org['login'], org['url']])
+    
+    # Write to CSV file
+    with open('enterprise_organizations.csv', 'w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerows(csv_data)
+    
+    print("Organizations saved to 'enterprise_organizations.csv'.")
+else:
+    print(f"Failed to fetch organizations. Status code: {response.status}")
+    print(response.read().decode('utf-8'))
+
+# Close the connection
+connection.close()
