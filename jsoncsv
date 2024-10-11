@@ -1,43 +1,45 @@
-import json
-import csv
-import os
+from github import Github
 
-def json_to_csv(json_file, csv_file):
-    # Open the JSON file with utf-8 encoding and load the data
-    with open(json_file, 'r', encoding='utf-8') as file:
-        data = json.load(file)
-    
-    # Open the CSV file for writing
-    with open(csv_file, 'w', newline='', encoding='utf-8') as file:
-        writer = csv.writer(file)
-        
-        # Check if data is a list of dictionaries
-        if isinstance(data, list):
-            # Extract keys (headers) from the first dictionary
-            headers = data[0].keys()
-            writer.writerow(headers)  # Write headers to CSV
+# Replace with your GitHub personal access token
+GITHUB_TOKEN = 'your_personal_access_token_here'
 
-            # Write each dictionary's values to the CSV
-            for entry in data:
-                writer.writerow(entry.values())
+# Replace with your GitHub organization name and new team name
+ORG_NAME = 'your_github_org_name'
+NEW_TEAM_NAME = 'New Consolidated Team'
 
-        # If JSON data is a single dictionary, handle it
-        elif isinstance(data, dict):
-            headers = data.keys()
-            writer.writerow(headers)
-            writer.writerow(data.values())
-        else:
-            raise ValueError("JSON data is neither a list of dictionaries nor a single dictionary.")
-    
-    print(f"Data successfully written to {csv_file}")
+# Initialize GitHub API client
+g = Github(GITHUB_TOKEN)
 
-# Example usage:
-# Get the Downloads directory path
-downloads_path = os.path.join(os.path.expanduser("~"), "Downloads")
+# Get the organization object
+org = g.get_organization(ORG_NAME)
 
-# Specify the input JSON file and output CSV file paths
-json_file = os.path.join(downloads_path, 'data.json')   # Replace 'data.json' with your actual file name
-csv_file = os.path.join(downloads_path, 'output.csv')
+# Create or get the new team where all members will be copied
+new_team = None
+for team in org.get_teams():
+    if team.name == NEW_TEAM_NAME:
+        new_team = team
+        break
 
-# Convert JSON to CSV
-json_to_csv(json_file, csv_file)
+if not new_team:
+    new_team = org.create_team(name=NEW_TEAM_NAME, privacy='closed')
+    print(f"Created new team: {NEW_TEAM_NAME}")
+
+# Set to keep track of unique members (to avoid duplicates)
+unique_members = set()
+
+# Loop through all teams in the organization (excluding the new team itself)
+for team in org.get_teams():
+    if team.name != NEW_TEAM_NAME:
+        print(f"Processing team: {team.name}")
+
+        # Add each member of the current team to the set
+        for member in team.get_members():
+            unique_members.add(member.login)
+
+# Add each unique member to the new consolidated team
+for member_login in unique_members:
+    user = g.get_user(member_login)
+    new_team.add_membership(user)
+    print(f"Added {member_login} to {NEW_TEAM_NAME}")
+
+print("All team members copied to the new team successfully.")
