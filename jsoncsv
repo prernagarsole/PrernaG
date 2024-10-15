@@ -70,3 +70,83 @@ with open(output_path, 'w', newline='') as file:
     writer.writerows(csv_data)
 
 print(f"Team member presence comparison saved to '{output_path}'.")
+
+
+
+
+
+
+
+
+
+
+
+import http.client
+import json
+import csv
+
+# Replace with your GitHub personal access token
+token = 'YOUR_GITHUB_PERSONAL_ACCESS_TOKEN'
+
+# GitHub API base URL
+base_url = 'api.github.com'
+
+# Hardcoded list of organizations to check
+organizations_to_check = ['org1', 'org2', 'org3', 'org4', 'org5']
+target_team_name = 'hhhhhhhh'
+
+# Function to make a GET request to the GitHub API
+def github_api_request(endpoint):
+    connection = http.client.HTTPSConnection(base_url)
+    headers = {
+        'Authorization': f'token {token}',
+        'User-Agent': 'Python Script',
+        'Accept': 'application/vnd.github.v3+json'
+    }
+    connection.request('GET', endpoint, headers=headers)
+    response = connection.getresponse()
+    data = response.read().decode('utf-8')
+    connection.close()
+    if response.status == 200:
+        return json.loads(data)
+    else:
+        print(f"Failed to fetch data from {endpoint}. Status code: {response.status}")
+        print(data)
+        return None
+
+# Function to get members of a specific team by team ID
+def get_team_members(team_id):
+    return github_api_request(f'/teams/{team_id}/members')
+
+csv_data = [["Organization Name", "Team Name", "Team Member Login", "Member URL", "Presence in hhhhhhhh Team"]]
+
+# Step 1: Loop through the hardcoded organizations
+for org_login in organizations_to_check:
+    teams = github_api_request(f'/orgs/{org_login}/teams')
+
+    if teams:
+        target_team_members = set()  # Initialize the target team members set
+
+        # Step 2: Fetch members of the target team (hhhhhhhh) first
+        for team in teams:
+            if team['name'] == target_team_name:
+                target_team_members = {member['login'] for member in get_team_members(team['id'])}
+                break
+
+        # Step 3: Loop through each team in the organization to compare members
+        for team in teams:
+            team_name = team['name']
+            members = get_team_members(team['id'])
+
+            if members:
+                for member in members:
+                    presence_status = "Present in hhhhhhhh" if member['login'] in target_team_members else "Not present in hhhhhhhh"
+                    csv_data.append([org_login, team_name, member['login'], member['html_url'], presence_status])
+
+# Step 4: Write the data to a CSV file
+with open('github_orgs_team_member_presence_comparison.csv', 'w', newline='') as file:
+    writer = csv.writer(file)
+    writer.writerows(csv_data)
+
+print("Team member presence comparison saved to 'github_orgs_team_member_presence_comparison.csv'.")
+
