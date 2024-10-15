@@ -91,3 +91,125 @@
 
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Organization Search</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 20px;
+        }
+        #results {
+            margin-top: 20px;
+        }
+        .result-item {
+            margin: 10px 0;
+        }
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Search GitHub Organizations for Repositories</h1>
+<form id="searchForm">
+    <label for="searchQuery">Search Query:</label>
+    <input type="text" id="searchQuery" required>
+    <button type="submit">Search</button>
+</form>
+
+<div id="results"></div>
+
+<script>
+    const token = 'YOUR_GITHUB_PERSONAL_ACCESS_TOKEN'; // Replace with your GitHub token
+
+    document.getElementById('searchForm').addEventListener('submit', function(event) {
+        event.preventDefault();
+        
+        const searchQuery = document.getElementById('searchQuery').value.trim();
+        
+        // Clear previous results
+        document.getElementById('results').innerHTML = 'Searching...';
+        if (searchQuery) {
+            fetchOrganizationsAndSearch(searchQuery);
+        } else {
+            document.getElementById('results').innerHTML = 'Please enter a valid search query.';
+        }
+    });
+
+    async function fetchOrganizationsAndSearch(query) {
+        const resultsContainer = document.getElementById('results');
+        resultsContainer.innerHTML = '';
+
+        // Fetch organizations
+        const orgsResponse = await fetch('https://api.github.com/user/orgs', {
+            headers: {
+                'Authorization': `token ${token}`,
+                'User-Agent': 'JavaScript Client',
+                'Accept': 'application/vnd.github.v3+json'
+            }
+        });
+
+        if (orgsResponse.ok) {
+            const organizations = await orgsResponse.json();
+            // Search in each organization
+            for (const org of organizations) {
+                await searchInOrganization(query, org.login);
+            }
+        } else {
+            const errorData = await orgsResponse.json();
+            resultsContainer.innerHTML = `<div class="error">Error fetching organizations: ${orgsResponse.status} - ${errorData.message}</div>`;
+        }
+    }
+
+    async function searchInOrganization(query, org) {
+        const resultsContainer = document.getElementById('results');
+        const endpoint = `https://api.github.com/search/repositories?q=${encodeURIComponent(query)}+org:${org}`;
+        const response = await fetch(endpoint, {
+            headers: {
+                'Authorization': `token ${token}`,
+                'User-Agent': 'JavaScript Client',
+                'Accept': 'application/vnd.github.v3+json'
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            displayResults(data.items, org);
+        } else {
+            const errorData = await response.json();
+            resultsContainer.innerHTML += `<div class="error">Error fetching from ${org}: ${response.status} - ${errorData.message}</div>`;
+        }
+    }
+
+    function displayResults(items, organization) {
+        const resultsContainer = document.getElementById('results');
+        if (items && items.length > 0) {
+            items.forEach(item => {
+                const resultDiv = document.createElement('div');
+                resultDiv.classList.add('result-item');
+                resultDiv.innerHTML = `<strong>Repository:</strong> <a href="${item.html_url}" target="_blank">${item.name}</a> (Organization: ${organization}) <br> URL: ${item.html_url}`;
+                resultsContainer.appendChild(resultDiv);
+            });
+        } else {
+            resultsContainer.innerHTML += `<div>No repositories found in ${organization} for "${searchQuery}".</div>`;
+        }
+    }
+</script>
+
+</body>
+</html>
