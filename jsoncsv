@@ -8,6 +8,10 @@ token = 'YOUR_GITHUB_PERSONAL_ACCESS_TOKEN'
 # GitHub API base URL
 base_url = 'api.github.com'
 
+# Hardcoded list of organizations to check
+organizations_to_check = ['org1', 'org2', 'org3', 'org4', 'org5']
+target_team_name = 'hhhhhhhh'
+
 # Function to make a GET request to the GitHub API
 def github_api_request(endpoint):
     connection = http.client.HTTPSConnection(base_url)
@@ -27,34 +31,47 @@ def github_api_request(endpoint):
         print(data)
         return None
 
-# Step 1: Fetch all organizations the token has access to
-organizations = github_api_request('/user/orgs')
+# Function to get members of a specific team by team ID
+def get_team_members(team_id):
+    return github_api_request(f'/teams/{team_id}/members')
 
-if organizations:
-    csv_data = [["Organization Name", "Team Name", "Team Member Login", "Member URL"]]
+csv_data = [["Organization Name", "Team Name", "Team Member Login", "Member URL", "Missing in Other Teams"]]
 
-    # Step 2: Fetch all teams for each organization
-    for org in organizations:
-        org_login = org['login']
-        teams = github_api_request(f'/orgs/{org_login}/teams')
+# Step 1: Loop through the hardcoded organizations
+for org_login in organizations_to_check:
+    teams = github_api_request(f'/orgs/{org_login}/teams')
 
-        if teams:
-            # Step 3: Fetch all members for each team
-            for team in teams:
-                team_name = team['name']
-                members = github_api_request(f'/teams/{team["id"]}/members')
+    if teams:
+        target_team_members = []
+        all_other_members = set()
 
-                if members:
-                    for member in members:
-                        csv_data.append([org_login, team_name, member['login'], member['html_url']])
+        # Step 2: Loop through each team in the organization
+        for team in teams:
+            team_name = team['name']
+            members = get_team_members(team['id'])
+
+            if members:
+                member_logins = {member['login'] for member in members}
+
+                # Check if this is the target team
+                if team_name == target_team_name:
+                    target_team_members = member_logins
                 else:
-                    csv_data.append([org_login, team_name, "No members found", "N/A"])
+                    all_other_members.update(member_logins)
 
-    # Step 4: Write the data to a CSV file
-    with open('github_authorized_orgs_teams_members.csv', 'w', newline='') as file:
-        writer = csv.writer(file)
-        writer.writerows(csv_data)
+                # Add all members to the CSV data
+                for member in members:
+                    csv_data.append([org_login, team_name, member['login'], member['html_url'], ""])
 
-    print("Teams and members saved to 'github_authorized_orgs_teams_members.csv'.")
-else:
-    print("No organizations found or failed to fetch organizations.")
+        # Step 3: Compare target team members with all other team members
+        missing_members = target_team_members - all_other_members
+        if missing_members:
+            for missing_member in missing_members:
+                csv_data.append([org_login, target_team_name, missing_member, "N/A", "Missing in other teams"])
+
+# Step 4: Write the data to a CSV file
+with open('github_orgs_team_member_comparison.csv', 'w', newline='') as file:
+    writer = csv.writer(file)
+    writer.writerows(csv_data)
+
+print("Team member comparison saved to 'github_orgs_team_member_comparison.csv'.")
