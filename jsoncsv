@@ -1,45 +1,61 @@
-from github import Github
+import http.client
+import json
+import csv
 
-# Replace with your GitHub personal access token
-GITHUB_TOKEN = 'your_personal_access_token_here'
+# Replace with your GitHub personal access token and enterprise slug
+token = 'YOUR_GITHUB_PERSONAL_ACCESS_TOKEN'
+enterprise_slug = 'YOUR_ENTERPRISE_SLUG'
 
-# Replace with your GitHub organization name and new team name
-ORG_NAME = 'your_github_org_name'
-NEW_TEAM_NAME = 'New Consolidated Team'
+# GitHub API base URL
+base_url = 'api.github.com'
 
-# Initialize GitHub API client
-g = Github(GITHUB_TOKEN)
+# Function to make a GET request to the GitHub API
+def github_api_request(endpoint):
+    connection = http.client.HTTPSConnection(base_url)
+    headers = {
+        'Authorization': f'token {token}',
+        'User-Agent': 'Python Script',
+        'Accept': 'application/vnd.github.v3+json'
+    }
+    connection.request('GET', endpoint, headers=headers)
+    response = connection.getresponse()
+    data = response.read().decode('utf-8')
+    connection.close()
+    if response.status == 200:
+        return json.loads(data)
+    else:
+        print(f"Failed to fetch data from {endpoint}. Status code: {response.status}")
+        print(data)
+        return None
 
-# Get the organization object
-org = g.get_organization(ORG_NAME)
+# Step 1: Fetch all organizations in the enterprise
+organizations = github_api_request(f'/enterprises/{enterprise_slug}/organizations')
 
-# Create or get the new team where all members will be copied
-new_team = None
-for team in org.get_teams():
-    if team.name == NEW_TEAM_NAME:
-        new_team = team
-        break
+if organizations:
+    csv_data = [["Organization Name", "Team Name", "Team Member Login", "Member URL"]]
 
-if not new_team:
-    new_team = org.create_team(name=NEW_TEAM_NAME, privacy='closed')
-    print(f"Created new team: {NEW_TEAM_NAME}")
+    # Step 2: Fetch all teams for each organization
+    for org in organizations:
+        org_login = org['login']
+        teams = github_api_request(f'/orgs/{org_login}/teams')
 
-# Set to keep track of unique members (to avoid duplicates)
-unique_members = set()
+        if teams:
+            # Step 3: Fetch all members for each team
+            for team in teams:
+                team_name = team['name']
+                members = github_api_request(f'/teams/{team["id"]}/members')
 
-# Loop through all teams in the organization (excluding the new team itself)
-for team in org.get_teams():
-    if team.name != NEW_TEAM_NAME:
-        print(f"Processing team: {team.name}")
+                if members:
+                    for member in members:
+                        csv_data.append([org_login, team_name, member['login'], member['html_url']])
+                else:
+                    csv_data.append([org_login, team_name, "No members found", "N/A"])
 
-        # Add each member of the current team to the set
-        for member in team.get_members():
-            unique_members.add(member.login)
+    # Step 4: Write the data to a CSV file
+    with open('github_enterprise_teams_members.csv', 'w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerows(csv_data)
 
-# Add each unique member to the new consolidated team
-for member_login in unique_members:
-    user = g.get_user(member_login)
-    new_team.add_membership(user)
-    print(f"Added {member_login} to {NEW_TEAM_NAME}")
-
-print("All team members copied to the new team successfully.")
+    print("Teams and members saved to 'github_enterprise_teams_members.csv'.")
+else:
+    print("No organizations found or failed to fetch organizations.")
