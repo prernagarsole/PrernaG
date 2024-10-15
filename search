@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Organization Search</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 20px;
+        }
+        #results {
+            margin-top: 20px;
+        }
+        .result-item {
+            margin: 10px 0;
+        }
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Search GitHub Organizations</h1>
+<form id="searchForm">
+    <label for="searchQuery">Search Query:</label>
+    <input type="text" id="searchQuery" required>
+    
+    <label for="searchType">Search Type:</label>
+    <select id="searchType">
+        <option value="repository">Repository</option>
+        <option value="issue">Issue</option>
+    </select>
+    
+    <button type="submit">Search</button>
+</form>
+
+<div id="results"></div>
+
+<script>
+    const token = 'YOUR_GITHUB_PERSONAL_ACCESS_TOKEN'; // Replace with your GitHub token
+    const organizations = ['ORG_1', 'ORG_2', 'ORG_3']; // Add your organizations here
+
+    document.getElementById('searchForm').addEventListener('submit', function(event) {
+        event.preventDefault();
+        
+        const searchQuery = document.getElementById('searchQuery').value;
+        const searchType = document.getElementById('searchType').value;
+        
+        document.getElementById('results').innerHTML = 'Searching...';
+        searchGitHub(searchQuery, searchType);
+    });
+
+    async function searchGitHub(query, type) {
+        const resultsContainer = document.getElementById('results');
+        resultsContainer.innerHTML = '';
+
+        for (const org of organizations) {
+            const endpoint = `https://api.github.com/search/${type}s?q=${query}+org:${org}`;
+            const response = await fetch(endpoint, {
+                headers: {
+                    'Authorization': `token ${token}`,
+                    'User-Agent': 'JavaScript Client',
+                    'Accept': 'application/vnd.github.v3+json'
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                displayResults(data.items, org, type);
+            } else {
+                resultsContainer.innerHTML += `<div class="error">Error fetching from ${org}: ${response.status}</div>`;
+            }
+        }
+    }
+
+    function displayResults(items, organization, type) {
+        const resultsContainer = document.getElementById('results');
+        if (items && items.length > 0) {
+            items.forEach(item => {
+                const resultDiv = document.createElement('div');
+                resultDiv.classList.add('result-item');
+                if (type === 'repository') {
+                    resultDiv.innerHTML = `<strong>Repository:</strong> <a href="${item.html_url}" target="_blank">${item.name}</a> (Organization: ${organization})`;
+                } else if (type === 'issue') {
+                    resultDiv.innerHTML = `<strong>Issue:</strong> <a href="${item.html_url}" target="_blank">${item.title}</a> (Organization: ${organization})`;
+                }
+                resultsContainer.appendChild(resultDiv);
+            });
+        } else {
+            resultsContainer.innerHTML += `<div>No ${type}s found in ${organization}.</div>`;
+        }
+    }
+</script>
+
+</body>
+</html>
