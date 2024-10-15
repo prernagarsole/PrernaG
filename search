@@ -30,8 +30,8 @@
     
     <label for="searchType">Search Type:</label>
     <select id="searchType">
-        <option value="repository">Repository</option>
-        <option value="issue">Issue</option>
+        <option value="repositories">Repository</option>
+        <option value="issues">Issue</option>
     </select>
     
     <button type="submit">Search</button>
@@ -58,7 +58,7 @@
         resultsContainer.innerHTML = '';
 
         for (const org of organizations) {
-            const endpoint = `https://api.github.com/search/${type}s?q=${query}+org:${org}`;
+            const endpoint = `https://api.github.com/search/${type}?q=${query}+org:${org}`;
             const response = await fetch(endpoint, {
                 headers: {
                     'Authorization': `token ${token}`,
@@ -82,11 +82,13 @@
             items.forEach(item => {
                 const resultDiv = document.createElement('div');
                 resultDiv.classList.add('result-item');
-                if (type === 'repository') {
-                    resultDiv.innerHTML = `<strong>Repository:</strong> <a href="${item.html_url}" target="_blank">${item.name}</a> (Organization: ${organization})`;
-                } else if (type === 'issue') {
-                    resultDiv.innerHTML = `<strong>Issue:</strong> <a href="${item.html_url}" target="_blank">${item.title}</a> (Organization: ${organization})`;
+
+                if (type === 'repositories') {
+                    resultDiv.innerHTML = `<strong>Repository:</strong> <a href="${item.html_url}" target="_blank">${item.name}</a> (Organization: ${organization}) <br> URL: ${item.html_url}`;
+                } else if (type === 'issues') {
+                    resultDiv.innerHTML = `<strong>Issue:</strong> <a href="${item.html_url}" target="_blank">${item.title}</a> (Organization: ${organization}) <br> URL: ${item.html_url}`;
                 }
+
                 resultsContainer.appendChild(resultDiv);
             });
         } else {
