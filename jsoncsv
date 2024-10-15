@@ -2,9 +2,8 @@ import http.client
 import json
 import csv
 
-# Replace with your GitHub personal access token and enterprise slug
+# Replace with your GitHub personal access token
 token = 'YOUR_GITHUB_PERSONAL_ACCESS_TOKEN'
-enterprise_slug = 'YOUR_ENTERPRISE_SLUG'
 
 # GitHub API base URL
 base_url = 'api.github.com'
@@ -28,8 +27,8 @@ def github_api_request(endpoint):
         print(data)
         return None
 
-# Step 1: Fetch all organizations in the enterprise
-organizations = github_api_request(f'/enterprises/{enterprise_slug}/organizations')
+# Step 1: Fetch all organizations the token has access to
+organizations = github_api_request('/user/orgs')
 
 if organizations:
     csv_data = [["Organization Name", "Team Name", "Team Member Login", "Member URL"]]
@@ -52,10 +51,10 @@ if organizations:
                     csv_data.append([org_login, team_name, "No members found", "N/A"])
 
     # Step 4: Write the data to a CSV file
-    with open('github_enterprise_teams_members.csv', 'w', newline='') as file:
+    with open('github_authorized_orgs_teams_members.csv', 'w', newline='') as file:
         writer = csv.writer(file)
         writer.writerows(csv_data)
 
-    print("Teams and members saved to 'github_enterprise_teams_members.csv'.")
+    print("Teams and members saved to 'github_authorized_orgs_teams_members.csv'.")
 else:
     print("No organizations found or failed to fetch organizations.")
