@@ -35,7 +35,7 @@ def github_api_request(endpoint):
 def get_team_members(team_id):
     return github_api_request(f'/teams/{team_id}/members')
 
-csv_data = [["Organization Name", "Team Name", "Team Member Login", "Member URL", "Presence in hhhhhhhh Team"]]
+csv_data = [["Organization Name", "Team Name", "Team Member Count", "Team Member Login", "Member URL", "Presence in hhhhhhhh Team"]]
 
 # Step 1: Loop through the hardcoded organizations
 for org_login in organizations_to_check:
@@ -55,14 +55,18 @@ for org_login in organizations_to_check:
             team_name = team['name']
             members = get_team_members(team['id'])
 
+            team_member_count = len(members) if members else 0  # Get the count of members in the team
+
             if members:
                 for member in members:
                     presence_status = "Present in hhhhhhhh" if member['login'] in target_team_members else "Not present in hhhhhhhh"
-                    csv_data.append([org_login, team_name, member['login'], member['html_url'], presence_status])
+                    csv_data.append([org_login, team_name, team_member_count, member['login'], member['html_url'], presence_status])
+            else:
+                csv_data.append([org_login, team_name, team_member_count, "No members", "N/A", "N/A"])
 
 # Step 4: Write the data to a CSV file
 with open('github_orgs_team_member_presence_comparison.csv', 'w', newline='') as file:
     writer = csv.writer(file)
     writer.writerows(csv_data)
 
-print("Team member presence comparison saved to 'github_orgs_team_member_presence_comparison.csv'.")
+print("Team member presence comparison with team counts saved to 'github_orgs_team_member_presence_comparison.csv'.")
