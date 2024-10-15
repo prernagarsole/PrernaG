@@ -23,17 +23,10 @@
 </head>
 <body>
 
-<h1>Search GitHub Organizations</h1>
+<h1>Search GitHub Organizations for Repositories</h1>
 <form id="searchForm">
     <label for="searchQuery">Search Query:</label>
     <input type="text" id="searchQuery" required>
-    
-    <label for="searchType">Search Type:</label>
-    <select id="searchType">
-        <option value="repositories">Repository</option>
-        <option value="issues">Issue</option>
-    </select>
-    
     <button type="submit">Search</button>
 </form>
 
@@ -41,24 +34,28 @@
 
 <script>
     const token = 'YOUR_GITHUB_PERSONAL_ACCESS_TOKEN'; // Replace with your GitHub token
-    const organizations = ['ORG_1', 'ORG_2', 'ORG_3']; // Add your organizations here
+    const organizations = ['ORG_1', 'ORG_2', 'ORG_3', 'ORG_4', 'ORG_5']; // Add your organizations here
 
     document.getElementById('searchForm').addEventListener('submit', function(event) {
         event.preventDefault();
         
-        const searchQuery = document.getElementById('searchQuery').value;
-        const searchType = document.getElementById('searchType').value;
+        const searchQuery = document.getElementById('searchQuery').value.trim();
         
+        // Clear previous results
         document.getElementById('results').innerHTML = 'Searching...';
-        searchGitHub(searchQuery, searchType);
+        if (searchQuery) {
+            searchGitHub(searchQuery);
+        } else {
+            document.getElementById('results').innerHTML = 'Please enter a valid search query.';
+        }
     });
 
-    async function searchGitHub(query, type) {
+    async function searchGitHub(query) {
         const resultsContainer = document.getElementById('results');
         resultsContainer.innerHTML = '';
 
         for (const org of organizations) {
-            const endpoint = `https://api.github.com/search/${type}?q=${query}+org:${org}`;
+            const endpoint = `https://api.github.com/search/repositories?q=${encodeURIComponent(query)}+org:${org}`;
             const response = await fetch(endpoint, {
                 headers: {
                     'Authorization': `token ${token}`,
@@ -69,30 +66,25 @@
 
             if (response.ok) {
                 const data = await response.json();
-                displayResults(data.items, org, type);
+                displayResults(data.items, org);
             } else {
-                resultsContainer.innerHTML += `<div class="error">Error fetching from ${org}: ${response.status}</div>`;
+                const errorData = await response.json();
+                resultsContainer.innerHTML += `<div class="error">Error fetching from ${org}: ${response.status} - ${errorData.message}</div>`;
             }
         }
     }
 
-    function displayResults(items, organization, type) {
+    function displayResults(items, organization) {
         const resultsContainer = document.getElementById('results');
         if (items && items.length > 0) {
             items.forEach(item => {
                 const resultDiv = document.createElement('div');
                 resultDiv.classList.add('result-item');
-
-                if (type === 'repositories') {
-                    resultDiv.innerHTML = `<strong>Repository:</strong> <a href="${item.html_url}" target="_blank">${item.name}</a> (Organization: ${organization}) <br> URL: ${item.html_url}`;
-                } else if (type === 'issues') {
-                    resultDiv.innerHTML = `<strong>Issue:</strong> <a href="${item.html_url}" target="_blank">${item.title}</a> (Organization: ${organization}) <br> URL: ${item.html_url}`;
-                }
-
+                resultDiv.innerHTML = `<strong>Repository:</strong> <a href="${item.html_url}" target="_blank">${item.name}</a> (Organization: ${organization}) <br> URL: ${item.html_url}`;
                 resultsContainer.appendChild(resultDiv);
             });
         } else {
-            resultsContainer.innerHTML += `<div>No ${type}s found in ${organization}.</div>`;
+            resultsContainer.innerHTML += `<div>No repositories found in ${organization} for "${searchQuery}".</div>`;
         }
     }
 </script>
