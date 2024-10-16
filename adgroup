@@ -149,8 +149,14 @@ csv_headers = ["Organization Name", "Team Name", "Team Member Login", "Member UR
 # Check if the CSV file exists to determine the write mode
 file_exists = os.path.isfile(csv_file_name)
 
-# Open the file in append mode if it exists, otherwise create a new file with write mode
-with open(csv_file_name, 'a' if file_exists else 'w', newline='') as file:
+# Open the file in the correct mode (append if exists, otherwise write)
+if file_exists:
+    file_mode = 'a'  # Append mode
+else:
+    file_mode = 'w'  # Write mode
+
+# Open the file in the appropriate mode
+with open(csv_file_name, mode=file_mode, newline='') as file:
     writer = csv.writer(file)
     
     # Write headers only if the file is new
@@ -181,4 +187,3 @@ with open(csv_file_name, 'a' if file_exists else 'w', newline='') as file:
                         writer.writerow([org_login, team_name, member['login'], member['html_url'], presence_status])
 
 print(f"Team member presence comparison updated in '{csv_file_name}'.")
-
