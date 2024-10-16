@@ -1,3 +1,174 @@
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Search Tool</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        table, th, td {
+            border: 1px solid black;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Search GitHub Content</h1>
+<input type="text" id="search" placeholder="Enter search query...">
+<button id="searchButton">Search</button>
+
+<h2>Results:</h2>
+<table id="resultsTable">
+    <thead>
+        <tr>
+            <th>Type</th>
+            <th>Organization</th>
+            <th>Repository</th>
+            <th>File Name/Issue Title</th>
+            <th>URL</th>
+        </tr>
+    </thead>
+    <tbody>
+    </tbody>
+</table>
+
+<script>
+    const token = 'YOUR_GITHUB_PERSONAL_ACCESS_TOKEN'; // Replace with your actual token
+
+    document.getElementById('searchButton').onclick = async () => {
+        const query = document.getElementById('search').value;
+        const resultsTableBody = document.getElementById('resultsTable').getElementsByTagName('tbody')[0];
+        resultsTableBody.innerHTML = ''; // Clear previous results
+
+        try {
+            // Fetch user's organizations
+            const orgsResponse = await fetch('https://api.github.com/user/orgs', {
+                headers: {
+                    'Authorization': `token ${token}`,
+                    'Accept': 'application/vnd.github.v3+json'
+                }
+            });
+
+            if (!orgsResponse.ok) {
+                console.error('Failed to fetch organizations:', orgsResponse.status, await orgsResponse.text());
+                return;
+            }
+
+            const organizations = await orgsResponse.json();
+
+            for (const org of organizations) {
+                let retryCount = 0;
+                const maxRetries = 5;
+                let searchSuccess = false;
+
+                while (!searchSuccess && retryCount < maxRetries) {
+                    const searchResponse = await fetch(`https://api.github.com/search/code?q=${query}+in:file+org:${org.login}`, {
+                        headers: {
+                            'Authorization': `token ${token}`,
+                            'Accept': 'application/vnd.github.v3+json'
+                        }
+                    });
+
+                    if (searchResponse.status === 403) {
+                        // Rate limit exceeded
+                        console.warn('Rate limit exceeded. Waiting for 1 minute...');
+                        await new Promise(resolve => setTimeout(resolve, 60000)); // Wait for 1 minute
+                        retryCount++;
+                        continue; // Retry the request
+                    }
+
+                    if (!searchResponse.ok) {
+                        console.error(`Failed to fetch results for organization ${org.login}:`, searchResponse.status, await searchResponse.text());
+                        break; // Exit loop if there's an error that's not a rate limit
+                    }
+
+                    const searchResults = await searchResponse.json();
+                    searchSuccess = true; // Mark as successful if we get results
+
+                    // Populate the results table with code search results
+                    searchResults.items.forEach(item => {
+                        const row = resultsTableBody.insertRow();
+                        row.insertCell(0).innerText = 'Code'; // Type
+                        row.insertCell(1).innerText = org.login; // Organization
+                        row.insertCell(2).innerText = item.repository.name; // Repository
+                        row.insertCell(3).innerText = item.name; // File Name
+                        row.insertCell(4).innerHTML = `<a href="${item.html_url}" target="_blank">View File</a>`; // URL
+                    });
+
+                    // Now search for issues within the organization
+                    const issuesResponse = await fetch(`https://api.github.com/search/issues?q=${query}+org:${org.login}`, {
+                        headers: {
+                            'Authorization': `token ${token}`,
+                            'Accept': 'application/vnd.github.v3+json'
+                        }
+                    });
+
+                    if (issuesResponse.ok) {
+                        const issuesResults = await issuesResponse.json();
+                        // Populate the results table with issue search results
+                        issuesResults.items.forEach(issue => {
+                            const row = resultsTableBody.insertRow();
+                            row.insertCell(0).innerText = 'Issue'; // Type
+                            row.insertCell(1).innerText = org.login; // Organization
+                            row.insertCell(2).innerText = issue.repository.name; // Repository
+                            row.insertCell(3).innerText = issue.title; // Issue Title
+                            row.insertCell(4).innerHTML = `<a href="${issue.html_url}" target="_blank">View Issue</a>`; // URL
+                        });
+                    } else {
+                        console.error(`Failed to fetch issues for organization ${org.login}:`, issuesResponse.status, await issuesResponse.text());
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    };
+</script>
+
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
