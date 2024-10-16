@@ -1,3 +1,212 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Search with Pagination</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 10px;
+            border: 1px solid #ccc;
+            text-align: left;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+        .pagination {
+            margin-top: 20px;
+        }
+        .pagination button {
+            margin: 0 5px;
+            padding: 5px 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Search GitHub Repositories</h1>
+    <input type="text" id="searchInput" placeholder="Type to search...">
+    
+    <table id="resultsTable">
+        <thead>
+            <tr>
+                <th>Organization</th>
+                <th>Repository</th>
+                <th>File Name</th>
+                <th>File Path</th>
+                <th>URL</th>
+            </tr>
+        </thead>
+        <tbody id="resultsBody"></tbody>
+    </table>
+    
+    <div class="pagination" id="paginationControls"></div>
+
+    <script>
+        const token = 'YOUR_GITHUB_PERSONAL_ACCESS_TOKEN'; // Replace with your token
+        const searchInput = document.getElementById('searchInput');
+        const resultsBody = document.getElementById('resultsBody');
+        const paginationControls = document.getElementById('paginationControls');
+
+        let currentPage = 1;
+        const resultsPerPage = 5;
+        let allResults = []; // Array to store all search results
+
+        // Function to fetch user organizations
+        async function fetchOrganizations() {
+            const response = await fetch('https://api.github.com/user/orgs', {
+                headers: {
+                    'Authorization': `token ${token}`,
+                    'Accept': 'application/vnd.github.v3+json',
+                },
+            });
+            return response.json();
+        }
+
+        // Function to fetch repositories for an organization
+        async function fetchRepositories(org) {
+            const response = await fetch(`https://api.github.com/orgs/${org}/repos`, {
+                headers: {
+                    'Authorization': `token ${token}`,
+                    'Accept': 'application/vnd.github.v3+json',
+                },
+            });
+            return response.json();
+        }
+
+        // Function to search code in a repository
+        async function searchCodeInRepo(org, repo, query) {
+            const response = await fetch(`https://api.github.com/search/code?q=${query}+in:file+repo:${org}/${repo}`, {
+                headers: {
+                    'Authorization': `token ${token}`,
+                    'Accept': 'application/vnd.github.v3+json',
+                },
+            });
+            return response.json();
+        }
+
+        // Function to render results in the table
+        function renderResults() {
+            resultsBody.innerHTML = ''; // Clear previous results
+            const start = (currentPage - 1) * resultsPerPage;
+            const end = start + resultsPerPage;
+            const paginatedResults = allResults.slice(start, end);
+
+            paginatedResults.forEach(item => {
+                const row = `<tr>
+                    <td>${item.org}</td>
+                    <td>${item.repo}</td>
+                    <td>${item.fileName}</td>
+                    <td>${item.filePath}</td>
+                    <td><a href="${item.url}" target="_blank">${item.url}</a></td>
+                </tr>`;
+                resultsBody.innerHTML += row; // Add row to table
+            });
+        }
+
+        // Function to render pagination controls
+        function renderPagination() {
+            paginationControls.innerHTML = ''; // Clear previous controls
+            const pageCount = Math.ceil(allResults.length / resultsPerPage);
+            for (let i = 1; i <= pageCount; i++) {
+                const button = document.createElement('button');
+                button.textContent = i;
+                button.onclick = () => {
+                    currentPage = i;
+                    renderResults();
+                };
+                paginationControls.appendChild(button);
+            }
+        }
+
+        // Handle input
+        searchInput.addEventListener('input', async () => {
+            const query = searchInput.value;
+            if (query.length > 0) {
+                const orgs = await fetchOrganizations();
+                allResults = []; // Reset all results
+
+                for (const org of orgs) {
+                    const repos = await fetchRepositories(org.login);
+                    for (const repo of repos) {
+                        const searchResults = await searchCodeInRepo(org.login, repo.name, query);
+                        if (searchResults.items) {
+                            searchResults.items.forEach(item => {
+                                const fileName = item.name;
+                                const filePath = item.path;
+                                const url = item.html_url;
+                                allResults.push({
+                                    org: org.login,
+                                    repo: repo.name,
+                                    fileName: fileName,
+                                    filePath: filePath,
+                                    url: url
+                                });
+                            });
+                        }
+                    }
+                }
+
+                // If no results found
+                if (allResults.length === 0) {
+                    resultsBody.innerHTML = '<tr><td colspan="5">No repositories or files found.</td></tr>';
+                } else {
+                    renderResults();
+                    renderPagination();
+                }
+            } else {
+                resultsBody.innerHTML = ''; // Clear results if input is empty
+                paginationControls.innerHTML = ''; // Clear pagination if input is empty
+            }
+        });
+    </script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
