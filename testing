@@ -90,23 +90,21 @@
                     }
                 });
 
-                if (!searchResponse.ok) {
+                // Check if search response is successful
+                if (searchResponse.ok) {
+                    const searchResults = await searchResponse.json();
+                    searchResults.items.forEach(item => {
+                        const row = resultsTableBody.insertRow();
+                        row.insertCell(0).innerText = org.login; // Organization
+                        row.insertCell(1).innerText = item.repository.name; // Repository
+                        row.insertCell(2).innerText = item.name; // File Name
+                        row.insertCell(3).innerText = item.path; // File Path
+                        row.insertCell(4).innerHTML = `<a href="${item.html_url}" target="_blank">View File</a>`; // URL
+                    });
+                } else {
                     const errorMessage = await searchResponse.text();
                     console.error(`Failed to fetch code results for organization ${org.login}:`, searchResponse.status, errorMessage);
-                    continue; // Skip this organization
                 }
-
-                const searchResults = await searchResponse.json();
-
-                // Populate the results table with code search results
-                searchResults.items.forEach(item => {
-                    const row = resultsTableBody.insertRow();
-                    row.insertCell(0).innerText = org.login; // Organization
-                    row.insertCell(1).innerText = item.repository.name; // Repository
-                    row.insertCell(2).innerText = item.name; // File Name
-                    row.insertCell(3).innerText = item.path; // File Path
-                    row.insertCell(4).innerHTML = `<a href="${item.html_url}" target="_blank">View File</a>`; // URL
-                });
 
                 // Now search for issues within the organization
                 const issuesResponse = await fetch(`https://api.github.com/search/issues?q=${query}+org:${org.login}`, {
@@ -116,9 +114,9 @@
                     }
                 });
 
+                // Check if issues response is successful
                 if (issuesResponse.ok) {
                     const issuesResults = await issuesResponse.json();
-                    // Populate the results table with issue search results
                     issuesResults.items.forEach(issue => {
                         const row = resultsTableBody.insertRow();
                         row.insertCell(0).innerText = org.login; // Organization
@@ -140,6 +138,7 @@
                     }
                 });
 
+                // Check if repositories response is successful
                 if (reposResponse.ok) {
                     const reposResults = await reposResponse.json();
                     reposResults.items.forEach(repo => {
@@ -155,6 +154,30 @@
                     console.error(`Failed to fetch repositories for organization ${org.login}:`, reposResponse.status, errorMessage);
                 }
             }
+
+            // Additional Search for Commit Messages
+            const commitsResponse = await fetch(`https://api.github.com/search/commits?q=${query}`, {
+                headers: {
+                    'Authorization': `token ${token}`,
+                    'Accept': 'application/vnd.github.cloak-preview' // Use cloak-preview for commits
+                }
+            });
+
+            if (commitsResponse.ok) {
+                const commitsResults = await commitsResponse.json();
+                commitsResults.items.forEach(commit => {
+                    const row = resultsTableBody.insertRow();
+                    row.insertCell(0).innerText = 'N/A'; // Organization not available
+                    row.insertCell(1).innerText = commit.repository.name; // Repository
+                    row.insertCell(2).innerText = commit.commit.message; // Commit Message
+                    row.insertCell(3).innerText = ''; // No specific file path
+                    row.insertCell(4).innerHTML = `<a href="${commit.html_url}" target="_blank">View Commit</a>`; // URL
+                });
+            } else {
+                const errorMessage = await commitsResponse.text();
+                console.error(`Failed to fetch commits:`, commitsResponse.status, errorMessage);
+            }
+
         } catch (error) {
             console.error('Error:', error);
             document.getElementById('errorMessage').innerText = 'An unexpected error occurred. Please try again later.';
