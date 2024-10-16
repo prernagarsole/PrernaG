@@ -21,6 +21,9 @@
         th {
             background-color: #f2f2f2;
         }
+        .error {
+            color: red;
+        }
     </style>
 </head>
 <body>
@@ -30,6 +33,7 @@
 <button id="searchButton">Search</button>
 
 <h2>Results:</h2>
+<div class="error" id="errorMessage"></div>
 <table id="resultsTable">
     <thead>
         <tr>
@@ -48,9 +52,15 @@
     const token = 'YOUR_GITHUB_PERSONAL_ACCESS_TOKEN'; // Replace with your actual token
 
     document.getElementById('searchButton').onclick = async () => {
-        const query = document.getElementById('search').value;
+        const query = document.getElementById('search').value.trim();
         const resultsTableBody = document.getElementById('resultsTable').getElementsByTagName('tbody')[0];
         resultsTableBody.innerHTML = ''; // Clear previous results
+        document.getElementById('errorMessage').innerText = ''; // Clear previous error messages
+
+        if (!query) {
+            document.getElementById('errorMessage').innerText = 'Please enter a search query.';
+            return;
+        }
 
         try {
             // Fetch user's organizations
@@ -62,78 +72,92 @@
             });
 
             if (!orgsResponse.ok) {
-                console.error('Failed to fetch organizations:', orgsResponse.status, await orgsResponse.text());
+                const errorMessage = await orgsResponse.text();
+                console.error('Failed to fetch organizations:', orgsResponse.status, errorMessage);
+                document.getElementById('errorMessage').innerText = 'Failed to fetch organizations. Please check your token.';
                 return;
             }
 
             const organizations = await orgsResponse.json();
 
+            // Iterate through each organization
             for (const org of organizations) {
-                let retryCount = 0;
-                const maxRetries = 5;
-                let searchSuccess = false;
-
-                while (!searchSuccess && retryCount < maxRetries) {
-                    // Search for code in the organization's repositories
-                    const searchResponse = await fetch(`https://api.github.com/search/code?q=${query}+org:${org.login}`, {
-                        headers: {
-                            'Authorization': `token ${token}`,
-                            'Accept': 'application/vnd.github.v3+json'
-                        }
-                    });
-
-                    if (searchResponse.status === 403) {
-                        // Rate limit exceeded
-                        console.warn('Rate limit exceeded. Waiting for 1 minute...');
-                        await new Promise(resolve => setTimeout(resolve, 60000)); // Wait for 1 minute
-                        retryCount++;
-                        continue; // Retry the request
+                // Search for code in the organization's repositories
+                const searchResponse = await fetch(`https://api.github.com/search/code?q=${query}+org:${org.login}`, {
+                    headers: {
+                        'Authorization': `token ${token}`,
+                        'Accept': 'application/vnd.github.v3+json'
                     }
+                });
 
-                    if (!searchResponse.ok) {
-                        console.error(`Failed to fetch results for organization ${org.login}:`, searchResponse.status, await searchResponse.text());
-                        break; // Exit loop if there's an error that's not a rate limit
+                if (!searchResponse.ok) {
+                    const errorMessage = await searchResponse.text();
+                    console.error(`Failed to fetch code results for organization ${org.login}:`, searchResponse.status, errorMessage);
+                    continue; // Skip this organization
+                }
+
+                const searchResults = await searchResponse.json();
+
+                // Populate the results table with code search results
+                searchResults.items.forEach(item => {
+                    const row = resultsTableBody.insertRow();
+                    row.insertCell(0).innerText = org.login; // Organization
+                    row.insertCell(1).innerText = item.repository.name; // Repository
+                    row.insertCell(2).innerText = item.name; // File Name
+                    row.insertCell(3).innerText = item.path; // File Path
+                    row.insertCell(4).innerHTML = `<a href="${item.html_url}" target="_blank">View File</a>`; // URL
+                });
+
+                // Now search for issues within the organization
+                const issuesResponse = await fetch(`https://api.github.com/search/issues?q=${query}+org:${org.login}`, {
+                    headers: {
+                        'Authorization': `token ${token}`,
+                        'Accept': 'application/vnd.github.v3+json'
                     }
+                });
 
-                    const searchResults = await searchResponse.json();
-                    searchSuccess = true; // Mark as successful if we get results
-
-                    // Populate the results table with code search results
-                    searchResults.items.forEach(item => {
+                if (issuesResponse.ok) {
+                    const issuesResults = await issuesResponse.json();
+                    // Populate the results table with issue search results
+                    issuesResults.items.forEach(issue => {
                         const row = resultsTableBody.insertRow();
                         row.insertCell(0).innerText = org.login; // Organization
-                        row.insertCell(1).innerText = item.repository.name; // Repository
-                        row.insertCell(2).innerText = item.name; // File Name
-                        row.insertCell(3).innerText = item.path; // File Path
-                        row.insertCell(4).innerHTML = `<a href="${item.html_url}" target="_blank">View File</a>`; // URL
+                        row.insertCell(1).innerText = issue.repository.name; // Repository
+                        row.insertCell(2).innerText = issue.title; // Issue Title
+                        row.insertCell(3).innerText = ''; // No File Path for issues
+                        row.insertCell(4).innerHTML = `<a href="${issue.html_url}" target="_blank">View Issue</a>`; // URL
                     });
+                } else {
+                    const errorMessage = await issuesResponse.text();
+                    console.error(`Failed to fetch issues for organization ${org.login}:`, issuesResponse.status, errorMessage);
+                }
 
-                    // Now search for issues within the organization
-                    const issuesResponse = await fetch(`https://api.github.com/search/issues?q=${query}+org:${org.login}`, {
-                        headers: {
-                            'Authorization': `token ${token}`,
-                            'Accept': 'application/vnd.github.v3+json'
-                        }
-                    });
-
-                    if (issuesResponse.ok) {
-                        const issuesResults = await issuesResponse.json();
-                        // Populate the results table with issue search results
-                        issuesResults.items.forEach(issue => {
-                            const row = resultsTableBody.insertRow();
-                            row.insertCell(0).innerText = org.login; // Organization
-                            row.insertCell(1).innerText = issue.repository.name; // Repository
-                            row.insertCell(2).innerText = issue.title; // Issue Title
-                            row.insertCell(3).innerText = ''; // No File Path for issues
-                            row.insertCell(4).innerHTML = `<a href="${issue.html_url}" target="_blank">View Issue</a>`; // URL
-                        });
-                    } else {
-                        console.error(`Failed to fetch issues for organization ${org.login}:`, issuesResponse.status, await issuesResponse.text());
+                // Search for repositories
+                const reposResponse = await fetch(`https://api.github.com/search/repositories?q=${query}+org:${org.login}`, {
+                    headers: {
+                        'Authorization': `token ${token}`,
+                        'Accept': 'application/vnd.github.v3+json'
                     }
+                });
+
+                if (reposResponse.ok) {
+                    const reposResults = await reposResponse.json();
+                    reposResults.items.forEach(repo => {
+                        const row = resultsTableBody.insertRow();
+                        row.insertCell(0).innerText = org.login; // Organization
+                        row.insertCell(1).innerText = repo.name; // Repository
+                        row.insertCell(2).innerText = ''; // No specific file name
+                        row.insertCell(3).innerText = ''; // No specific file path
+                        row.insertCell(4).innerHTML = `<a href="${repo.html_url}" target="_blank">View Repository</a>`; // URL
+                    });
+                } else {
+                    const errorMessage = await reposResponse.text();
+                    console.error(`Failed to fetch repositories for organization ${org.login}:`, reposResponse.status, errorMessage);
                 }
             }
         } catch (error) {
             console.error('Error:', error);
+            document.getElementById('errorMessage').innerText = 'An unexpected error occurred. Please try again later.';
         }
     };
 </script>
