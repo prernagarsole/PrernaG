@@ -80,6 +80,12 @@
 
             const organizations = await orgsResponse.json();
 
+            // If no organizations found, inform the user
+            if (organizations.length === 0) {
+                document.getElementById('errorMessage').innerText = 'No organizations found.';
+                return;
+            }
+
             // Iterate through each organization
             for (const org of organizations) {
                 // Search for code in the organization's repositories
@@ -90,7 +96,6 @@
                     }
                 });
 
-                // Check if search response is successful
                 if (searchResponse.ok) {
                     const searchResults = await searchResponse.json();
                     searchResults.items.forEach(item => {
@@ -114,7 +119,6 @@
                     }
                 });
 
-                // Check if issues response is successful
                 if (issuesResponse.ok) {
                     const issuesResults = await issuesResponse.json();
                     issuesResults.items.forEach(issue => {
@@ -138,7 +142,6 @@
                     }
                 });
 
-                // Check if repositories response is successful
                 if (reposResponse.ok) {
                     const reposResults = await reposResponse.json();
                     reposResults.items.forEach(repo => {
