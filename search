@@ -373,8 +373,6 @@
 
 
 
-
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -385,9 +383,6 @@
         body {
             font-family: Arial, sans-serif;
             margin: 20px;
-            padding: 20px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
         }
         table {
             width: 100%;
@@ -395,128 +390,94 @@
             margin-top: 20px;
         }
         th, td {
-            border: 1px solid #ccc;
+            border: 1px solid #ddd;
             padding: 8px;
             text-align: left;
         }
         th {
             background-color: #f2f2f2;
         }
-        #results {
-            margin-top: 20px;
-        }
     </style>
 </head>
 <body>
 
-<h1>GitHub Codebase Search</h1>
+    <h1>GitHub Codebase Search</h1>
+    <label for="search">Search Query:</label>
+    <input type="text" id="search" placeholder="Enter your search query" required>
+    <br><br>
+    <button id="searchButton">Search Codebase</button>
 
-<form id="searchForm">
-    <label for="token">GitHub Personal Access Token:</label><br>
-    <input type="text" id="token" required><br><br>
-
-    <label for="username">GitHub Username:</label><br>
-    <input type="text" id="username" required><br><br>
-
-    <button type="submit">Search Codebase</button>
-</form>
-
-<div id="results">
-    <h2>Search Results</h2>
-    <table>
+    <h2>Results</h2>
+    <table id="resultsTable">
         <thead>
             <tr>
                 <th>Organization</th>
                 <th>Repository</th>
                 <th>File Name</th>
                 <th>File Path</th>
-                <th>HTML URL</th>
+                <th>URL</th>
             </tr>
         </thead>
-        <tbody id="resultsBody">
-            <!-- Results will be inserted here -->
+        <tbody>
+            <!-- Results will be populated here -->
         </tbody>
     </table>
-</div>
 
-<script>
-    document.getElementById('searchForm').addEventListener('submit', function(event) {
-        event.preventDefault(); // Prevent form submission
+    <script>
+        // Hardcoded GitHub Personal Access Token
+        const token = 'YOUR_GITHUB_PERSONAL_ACCESS_TOKEN'; // Replace with your actual token
 
-        const token = document.getElementById('token').value;
-        const username = document.getElementById('username').value;
-        const resultsBody = document.getElementById('resultsBody');
-        resultsBody.innerHTML = ''; // Clear previous results
+        document.getElementById('searchButton').onclick = async () => {
+            const query = document.getElementById('search').value;
+            const resultsTableBody = document.getElementById('resultsTable').getElementsByTagName('tbody')[0];
+            resultsTableBody.innerHTML = ''; // Clear previous results
 
-        // Step 1: Get User Organizations
-        fetch(`https://api.github.com/users/${username}/orgs`, {
-            headers: {
-                'Authorization': `token ${token}`,
-                'Accept': 'application/vnd.github.v3+json'
-            }
-        })
-        .then(response => response.json())
-        .then(organizations => {
-            if (Array.isArray(organizations)) {
-                // Step 2: Loop through organizations and search codebase
-                organizations.forEach(org => {
-                    const orgLogin = org.login;
-
-                    // Codebase Search
-                    searchCodebase(orgLogin, token);
+            try {
+                // Fetch user's organizations
+                const orgsResponse = await fetch('https://api.github.com/user/orgs', {
+                    headers: {
+                        'Authorization': `token ${token}`,
+                        'Accept': 'application/vnd.github.v3+json'
+                    }
                 });
-            }
-        })
-        .catch(error => {
-            console.error('Error fetching organizations:', error);
-        });
-    });
 
-    // Function to search codebase in the organization
-    function searchCodebase(orgLogin, token) {
-        const searchQuery = '*'; // Wildcard for searching all codebase
-        let page = 1;
-
-        function fetchCodebaseResults() {
-            fetch(`https://api.github.com/search/code?q=${searchQuery}+org:${orgLogin}&page=${page}&per_page=100`, {
-                headers: {
-                    'Authorization': `token ${token}`,
-                    'Accept': 'application/vnd.github.v3+json'
+                if (!orgsResponse.ok) {
+                    throw new Error('Failed to fetch organizations');
                 }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.items) {
-                    data.items.forEach(item => {
-                        const row = document.createElement('tr');
-                        row.innerHTML = `
-                            <td>${orgLogin}</td>
-                            <td>${item.repository.full_name}</td>
-                            <td>${item.name}</td>
-                            <td>${item.path}</td>
-                            <td><a href="${item.html_url}" target="_blank">View</a></td>
-                        `;
-                        document.getElementById('resultsBody').appendChild(row);
+
+                const organizations = await orgsResponse.json();
+
+                // Search code in each organization
+                for (const org of organizations) {
+                    const searchResponse = await fetch(`https://api.github.com/search/code?q=${query}+in:file+org:${org.login}`, {
+                        headers: {
+                            'Authorization': `token ${token}`,
+                            'Accept': 'application/vnd.github.v3+json'
+                        }
                     });
 
-                    // If there are more results, fetch the next page
-                    if (data.total_count > page * 100) {
-                        page++;
-                        fetchCodebaseResults();
+                    if (!searchResponse.ok) {
+                        console.error(`Failed to fetch results for organization: ${org.login}`);
+                        continue; // Skip this organization if an error occurs
                     }
+
+                    const searchResults = await searchResponse.json();
+
+                    // Populate the results table
+                    searchResults.items.forEach(item => {
+                        const row = resultsTableBody.insertRow();
+                        row.insertCell(0).innerText = org.login; // Organization
+                        row.insertCell(1).innerText = item.repository.name; // Repository
+                        row.insertCell(2).innerText = item.name; // File Name
+                        row.insertCell(3).innerText = item.path; // File Path
+                        row.insertCell(4).innerHTML = `<a href="${item.html_url}" target="_blank">View File</a>`; // URL
+                    });
                 }
-            })
-            .catch(error => {
-                console.error('Error fetching codebase:', error);
-            });
-        }
-
-        // Start fetching codebase results
-        fetchCodebaseResults();
-    }
-</script>
-
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        };
+    </script>
 </body>
 </html>
-
 
