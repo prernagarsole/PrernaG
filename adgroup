@@ -78,3 +78,107 @@ with open('github_orgs_team_member_presence_comparison.csv', 'w', newline='') as
     writer.writerows(csv_data)
 
 print("Team member presence comparison saved to 'github_orgs_team_member_presence_comparison.csv'.")
+
+
+
+
+
+
+
+
+
+
+
+
+====
+
+
+import http.client
+import json
+import csv
+import os  # Import os to check if the file exists
+
+# Replace with your GitHub personal access token
+token = 'YOUR_GITHUB_PERSONAL_ACCESS_TOKEN'
+
+# GitHub API base URL
+base_url = 'api.github.com'
+
+# Hardcoded list of organizations to check
+organizations_to_check = ['org1', 'org2', 'org3', 'org4', 'org5']
+target_team_name = 'TEAM'
+
+# Function to make a paginated GET request to the GitHub API
+def github_api_request(endpoint):
+    connection = http.client.HTTPSConnection(base_url)
+    headers = {
+        'Authorization': f'token {token}',
+        'User-Agent': 'Python Script',
+        'Accept': 'application/vnd.github.v3+json'
+    }
+    all_data = []
+    page = 1
+
+    while True:
+        paginated_endpoint = f"{endpoint}?page={page}&per_page=100"
+        connection.request('GET', paginated_endpoint, headers=headers)
+        response = connection.getresponse()
+        data = response.read().decode('utf-8')
+        connection.close()
+
+        if response.status == 200:
+            page_data = json.loads(data)
+            if not page_data:  # Break the loop if no more data is returned
+                break
+            all_data.extend(page_data)
+            page += 1
+        else:
+            print(f"Failed to fetch data from {endpoint}. Status code: {response.status}")
+            print(data)
+            break
+
+    return all_data
+
+# Function to get members of a specific team by team ID
+def get_team_members(team_id):
+    return github_api_request(f'/teams/{team_id}/members')
+
+csv_file_name = 'github_orgs_team_member_presence_comparison.csv'
+csv_headers = ["Organization Name", "Team Name", "Team Member Login", "Member URL", "Presence in TEAM"]
+
+# Check if the CSV file exists to determine the write mode
+file_exists = os.path.isfile(csv_file_name)
+
+# Open the file in append mode if it exists, otherwise create a new file with write mode
+with open(csv_file_name, 'a' if file_exists else 'w', newline='') as file:
+    writer = csv.writer(file)
+    
+    # Write headers only if the file is new
+    if not file_exists:
+        writer.writerow(csv_headers)
+
+    # Step 1: Loop through the hardcoded organizations
+    for org_login in organizations_to_check:
+        teams = github_api_request(f'/orgs/{org_login}/teams')
+
+        if teams:
+            target_team_members = set()  # Initialize the target team members set
+
+            # Step 2: Fetch members of the target team (TEAM) first
+            for team in teams:
+                if team['name'] == target_team_name:
+                    target_team_members = {member['login'] for member in get_team_members(team['id'])}
+                    break
+
+            # Step 3: Loop through each team in the organization to compare members
+            for team in teams:
+                team_name = team['name']
+                members = get_team_members(team['id'])
+
+                if members:
+                    for member in members:
+                        presence_status = "Present in TEAM" if member['login'] in target_team_members else "Not present in TEAM"
+                        writer.writerow([org_login, team_name, member['login'], member['html_url'], presence_status])
+
+print(f"Team member presence comparison updated in '{csv_file_name}'.")
+
