@@ -135,15 +135,7 @@ Would you like to explore more about setting up UCD processes or further customi
 
 
 
-
-
-
-
-
-
-
-
-                                        # GitHub Configuration
+# GitHub Configuration
 $GITHUB_TOKEN = "your-github-token"  # Your GitHub token
 $GITHUB_ORGS = @("org1", "org2")  # List of GitHub organizations
 $TEAM_NAME = "team_Git_read"  # The name of the new GitHub team you want to create
@@ -156,9 +148,15 @@ Function Get-ADGroupMembers {
         [String]$GroupName
     )
 
-    # Fetch members of the Git_read group
-    $Group = Get-ADGroup $GroupName
-    $Members = Get-ADGroupMember -Identity $Group.DistinguishedName | Where-Object {$_.objectClass -eq "user"}
+    # Fetch the group object using Get-ADGroup
+    $Group = Get-ADGroup -Filter "Name -eq '$GroupName'" -ErrorAction Stop
+    if ($Group -eq $null) {
+        throw "The group '$GroupName' was not found in Active Directory."
+    }
+
+    # Fetch members of the group
+    $Members = Get-ADGroupMember -Identity $Group.DistinguishedName -ErrorAction Stop |
+               Where-Object {$_.objectClass -eq "user"}
     
     # Return the SAMAccountName (or username) of each member
     $Members | Select-Object -ExpandProperty SamAccountName
@@ -182,7 +180,7 @@ Function Create-GitHubTeam {
     $TeamPayload = @{
         "name"        = $TeamName
         "permission"  = "pull"  # Read-only access
-    } | ConvertTo-Json
+    } | ConvertTo-Json -Depth 10
 
     $TeamUrl = "https://api.github.com/orgs/$OrgName/teams"
     $Response = Invoke-RestMethod -Uri $TeamUrl -Headers $Headers -Method Post -Body $TeamPayload
@@ -257,16 +255,20 @@ Function Grant-ReadOnlyAccessToRepos {
 }
 
 # Main Execution
-# Step 1: Get members from the AD 'Git_read' group
-$GitReadGroupMembers = Get-ADGroupMembers -GroupName $AD_GROUP_NAME
+try {
+    # Step 1: Get members from the AD 'Git_read' group
+    $GitReadGroupMembers = Get-ADGroupMembers -GroupName $AD_GROUP_NAME
 
-foreach ($Org in $GITHUB_ORGS) {
-    # Step 2: Create the team 'team_Git_read' in each GitHub organization
-    Create-GitHubTeam -OrgName $Org -TeamName $TEAM_NAME
+    foreach ($Org in $GITHUB_ORGS) {
+        # Step 2: Create the team 'team_Git_read' in each GitHub organization
+        Create-GitHubTeam -OrgName $Org -TeamName $TEAM_NAME
 
-    # Step 3: Add members to the newly created GitHub team 'team_Git_read'
-    Add-UsersToGitHubTeam -OrgName $Org -TeamName $TEAM_NAME -Users $GitReadGroupMembers
+        # Step 3: Add members to the newly created GitHub team 'team_Git_read'
+        Add-UsersToGitHubTeam -OrgName $Org -TeamName $TEAM_NAME -Users $GitReadGroupMembers
 
-    # Step 4: Grant read-only access to all repos for the GitHub team 'team_Git_read'
-    Grant-ReadOnlyAccessToRepos -OrgName $Org -TeamName $TEAM_NAME
+        # Step 4: Grant read-only access to all repos for the GitHub team 'team_Git_read'
+        Grant-ReadOnlyAccessToRepos -OrgName $Org -TeamName $TEAM_NAME
+    }
+} catch {
+    Write-Host "Error: $($_.Exception.Message)"
 }
