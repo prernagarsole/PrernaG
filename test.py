@@ -292,63 +292,88 @@ try {
 
 
 
+
+
+
                  import json
 import urllib.request
+import urllib.error
 
-# Configuration
-GITHUB_TOKEN = "your-github-token"  # Replace with your GitHub token
-SOURCE_ORG = "source_org"           # Source organization
-SOURCE_TEAM = "source_team_slug"    # Source team slug
-DEST_ORG = "destination_org"        # Destination organization
-DEST_TEAM = "destination_team_slug" # Destination team slug
+# GitHub configuration
+GITHUB_TOKEN = "your-github-token"  # Your GitHub token
+SOURCE_ORG = "org1"  # Source organization
+TARGET_ORG = "org2"  # Target organization
+TEAM_NAME = "Team A"  # The team name to copy (same in both orgs)
 
-HEADERS = {
+# Headers for GitHub API requests
+headers = {
     "Authorization": f"Bearer {GITHUB_TOKEN}",
     "Content-Type": "application/json"
 }
 
-# Function to send a GET request
+# Function to send a GET request to GitHub API
 def send_get_request(url):
-    req = urllib.request.Request(url, headers=HEADERS)
-    with urllib.request.urlopen(req) as response:
-        return json.load(response)
-
-# Function to send a PUT request
-def send_put_request(url, payload=None):
-    data = json.dumps(payload).encode("utf-8") if payload else None
-    req = urllib.request.Request(url, headers=HEADERS, method="PUT", data=data)
-    with urllib.request.urlopen(req) as response:
-        return response.read()
-
-# Fetch all members of the source team
-def fetch_team_members(org, team_slug):
-    url = f"https://api.github.com/orgs/{org}/teams/{team_slug}/members"
+    req = urllib.request.Request(url, headers=headers)
     try:
-        response = send_get_request(url)
-        members = [member["login"] for member in response]
-        print(f"Fetched {len(members)} members from team '{team_slug}' in organization '{org}'.")
-        return members
-    except Exception as e:
-        print(f"Error fetching members from team '{team_slug}': {e}")
-        return []
+        with urllib.request.urlopen(req) as response:
+            return json.loads(response.read().decode())
+    except urllib.error.HTTPError as e:
+        print(f"Error fetching data from GitHub API: {e.code} - {e.reason}")
+        return None
 
-# Add a user to a destination team
-def add_user_to_team(org, team_slug, username):
-    url = f"https://api.github.com/orgs/{org}/teams/{team_slug}/memberships/{username}"
+# Function to send a POST request to GitHub API
+def send_post_request(url, data):
+    req = urllib.request.Request(url, data=json.dumps(data).encode(), headers=headers, method="POST")
     try:
+        with urllib.request.urlopen(req) as response:
+            return json.loads(response.read().decode())
+    except urllib.error.HTTPError as e:
+        print(f"Error creating team: {e.code} - {e.reason}")
+        return None
+
+# Function to send a PUT request to GitHub API
+def send_put_request(url):
+    req = urllib.request.Request(url, headers=headers, method="PUT")
+    try:
+        with urllib.request.urlopen(req) as response:
+            return json.loads(response.read().decode())
+    except urllib.error.HTTPError as e:
+        print(f"Error adding user to team: {e.code} - {e.reason}")
+        return None
+
+# Function to fetch users from a specific team in an organization
+def get_team_members(org_name, team_slug):
+    url = f"https://api.github.com/orgs/{org_name}/teams/{team_slug}/members"
+    return send_get_request(url)
+
+# Function to create a team in the target organization
+def create_team_in_target(org_name, team_name):
+    url = f"https://api.github.com/orgs/{org_name}/teams"
+    data = {
+        "name": team_name,
+        "permission": "pull",  # Grant read-only access
+        "privacy": "closed"  # Private team
+    }
+    return send_post_request(url, data)
+
+# Function to add users to a specific team in the target organization
+def add_users_to_team(org_name, team_slug, users):
+    for user in users:
+        url = f"https://api.github.com/orgs/{org_name}/teams/{team_slug}/memberships/{user}"
         send_put_request(url)
-        print(f"Added user '{username}' to team '{team_slug}' in organization '{org}'.")
-    except Exception as e:
-        print(f"Error adding user '{username}' to team '{team_slug}': {e}")
 
-# Main logic
-if __name__ == "__main__":
-    # Step 1: Fetch members from the source team
-    source_team_members = fetch_team_members(SOURCE_ORG, SOURCE_TEAM)
-    
-    if not source_team_members:
-        print("No members found in the source team. Exiting.")
-    else:
-        # Step 2: Add members to the destination team
-        for user in source_team_members:
-            add_user_to_team(DEST_ORG, DEST_TEAM, user)
+# Main execution
+source_team_slug = TEAM_NAME.lower()  # GitHub team slugs are usually lowercase
+target_team_slug = TEAM_NAME.lower()  # Same team name in the target org
+
+# Step 1: Get members of the source team in the source organization
+members = get_team_members(SOURCE_ORG, source_team_slug)
+
+if members:
+    # Step 2: Create a team in the target organization if it doesn't exist
+    target_team = create_team_in_target(TARGET_ORG, TEAM_NAME)
+
+    if target_team:
+        target_team_slug = target_team['slug']  # Extract the created team's slug
+        # Step 3: Add users from the source team to the new team in the target org
+        add_users_to_team(TARGET_ORG, target_team_slug, members)
