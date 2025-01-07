@@ -116,3 +116,157 @@ Next Steps
 Customize the API endpoint URLs, ticket status checks, and deployment processes to fit your specific environment.
 Ensure the correct setup of UCD REST API tokens and GitHub Secrets for secure access.
 Would you like to explore more about setting up UCD processes or further customizing this workflow?
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                        # GitHub Configuration
+$GITHUB_TOKEN = "your-github-token"  # Your GitHub token
+$GITHUB_ORGS = @("org1", "org2")  # List of GitHub organizations
+$TEAM_NAME = "team_Git_read"  # The name of the new GitHub team you want to create
+$AD_GROUP_NAME = "Git_read"   # The AD group from which we will copy members
+
+# Function to fetch users from Active Directory group 'Git_read'
+Function Get-ADGroupMembers {
+    Param (
+        [Parameter(Mandatory=$True)]
+        [String]$GroupName
+    )
+
+    # Fetch members of the Git_read group
+    $Group = Get-ADGroup $GroupName
+    $Members = Get-ADGroupMember -Identity $Group.DistinguishedName | Where-Object {$_.objectClass -eq "user"}
+    
+    # Return the SAMAccountName (or username) of each member
+    $Members | Select-Object -ExpandProperty SamAccountName
+}
+
+# Function to create a new team in GitHub
+Function Create-GitHubTeam {
+    Param (
+        [Parameter(Mandatory=$True)]
+        [String]$OrgName,
+
+        [Parameter(Mandatory=$True)]
+        [String]$TeamName
+    )
+
+    $Headers = @{
+        "Authorization" = "Bearer $GITHUB_TOKEN"
+        "Content-Type"  = "application/json"
+    }
+
+    $TeamPayload = @{
+        "name"        = $TeamName
+        "permission"  = "pull"  # Read-only access
+    } | ConvertTo-Json
+
+    $TeamUrl = "https://api.github.com/orgs/$OrgName/teams"
+    $Response = Invoke-RestMethod -Uri $TeamUrl -Headers $Headers -Method Post -Body $TeamPayload
+
+    if ($Response -ne $null) {
+        Write-Host "Created team $TeamName in organization $OrgName."
+    } else {
+        Write-Host "Error creating team $TeamName in organization $OrgName."
+    }
+}
+
+# Function to add users to a GitHub team in an organization
+Function Add-UsersToGitHubTeam {
+    Param (
+        [Parameter(Mandatory=$True)]
+        [String]$OrgName,
+
+        [Parameter(Mandatory=$True)]
+        [String]$TeamName,
+
+        [Parameter(Mandatory=$True)]
+        [Array]$Users
+    )
+
+    $Headers = @{
+        "Authorization" = "Bearer $GITHUB_TOKEN"
+        "Content-Type"  = "application/json"
+    }
+
+    foreach ($User in $Users) {
+        $UserUrl = "https://api.github.com/orgs/$OrgName/teams/$TeamName/memberships/$User"
+        $Response = Invoke-RestMethod -Uri $UserUrl -Headers $Headers -Method Put
+        
+        if ($Response -eq $null) {
+            Write-Host "User $User added to the team $TeamName in organization $OrgName."
+        } else {
+            Write-Host "Error adding $User to the team $TeamName: $($Response.message)"
+        }
+    }
+}
+
+# Function to grant read-only access to all repos for the GitHub team
+Function Grant-ReadOnlyAccessToRepos {
+    Param (
+        [Parameter(Mandatory=$True)]
+        [String]$OrgName,
+
+        [Parameter(Mandatory=$True)]
+        [String]$TeamName
+    )
+
+    $Headers = @{
+        "Authorization" = "Bearer $GITHUB_TOKEN"
+        "Content-Type"  = "application/json"
+    }
+
+    $ReposUrl = "https://api.github.com/orgs/$OrgName/repos"
+    $Repos = Invoke-RestMethod -Uri $ReposUrl -Headers $Headers -Method Get
+
+    foreach ($Repo in $Repos) {
+        $RepoName = $Repo.name
+        $TeamRepoUrl = "https://api.github.com/orgs/$OrgName/teams/$TeamName/repos/$OrgName/$RepoName"
+        
+        $Response = Invoke-RestMethod -Uri $TeamRepoUrl -Headers $Headers -Method Put -Body '{"permission":"pull"}'
+        
+        if ($Response -eq $null) {
+            Write-Host "Granted read-only access to team $TeamName for repo $RepoName in $OrgName."
+        } else {
+            Write-Host "Error granting access to $RepoName: $($Response.message)"
+        }
+    }
+}
+
+# Main Execution
+# Step 1: Get members from the AD 'Git_read' group
+$GitReadGroupMembers = Get-ADGroupMembers -GroupName $AD_GROUP_NAME
+
+foreach ($Org in $GITHUB_ORGS) {
+    # Step 2: Create the team 'team_Git_read' in each GitHub organization
+    Create-GitHubTeam -OrgName $Org -TeamName $TEAM_NAME
+
+    # Step 3: Add members to the newly created GitHub team 'team_Git_read'
+    Add-UsersToGitHubTeam -OrgName $Org -TeamName $TEAM_NAME -Users $GitReadGroupMembers
+
+    # Step 4: Grant read-only access to all repos for the GitHub team 'team_Git_read'
+    Grant-ReadOnlyAccessToRepos -OrgName $Org -TeamName $TEAM_NAME
+}
