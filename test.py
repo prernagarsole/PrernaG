@@ -272,3 +272,83 @@ try {
 } catch {
     Write-Host "Error: $($_.Exception.Message)"
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                 import json
+import urllib.request
+
+# Configuration
+GITHUB_TOKEN = "your-github-token"  # Replace with your GitHub token
+SOURCE_ORG = "source_org"           # Source organization
+SOURCE_TEAM = "source_team_slug"    # Source team slug
+DEST_ORG = "destination_org"        # Destination organization
+DEST_TEAM = "destination_team_slug" # Destination team slug
+
+HEADERS = {
+    "Authorization": f"Bearer {GITHUB_TOKEN}",
+    "Content-Type": "application/json"
+}
+
+# Function to send a GET request
+def send_get_request(url):
+    req = urllib.request.Request(url, headers=HEADERS)
+    with urllib.request.urlopen(req) as response:
+        return json.load(response)
+
+# Function to send a PUT request
+def send_put_request(url, payload=None):
+    data = json.dumps(payload).encode("utf-8") if payload else None
+    req = urllib.request.Request(url, headers=HEADERS, method="PUT", data=data)
+    with urllib.request.urlopen(req) as response:
+        return response.read()
+
+# Fetch all members of the source team
+def fetch_team_members(org, team_slug):
+    url = f"https://api.github.com/orgs/{org}/teams/{team_slug}/members"
+    try:
+        response = send_get_request(url)
+        members = [member["login"] for member in response]
+        print(f"Fetched {len(members)} members from team '{team_slug}' in organization '{org}'.")
+        return members
+    except Exception as e:
+        print(f"Error fetching members from team '{team_slug}': {e}")
+        return []
+
+# Add a user to a destination team
+def add_user_to_team(org, team_slug, username):
+    url = f"https://api.github.com/orgs/{org}/teams/{team_slug}/memberships/{username}"
+    try:
+        send_put_request(url)
+        print(f"Added user '{username}' to team '{team_slug}' in organization '{org}'.")
+    except Exception as e:
+        print(f"Error adding user '{username}' to team '{team_slug}': {e}")
+
+# Main logic
+if __name__ == "__main__":
+    # Step 1: Fetch members from the source team
+    source_team_members = fetch_team_members(SOURCE_ORG, SOURCE_TEAM)
+    
+    if not source_team_members:
+        print("No members found in the source team. Exiting.")
+    else:
+        # Step 2: Add members to the destination team
+        for user in source_team_members:
+            add_user_to_team(DEST_ORG, DEST_TEAM, user)
