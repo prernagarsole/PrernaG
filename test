@@ -1,47 +1,47 @@
 # Define the report file path
-$UCD_Report = "UCD_Report.csv"
+$UCD_Report = "UCD_End_To_End_Report.csv"
 
 # Create or overwrite the CSV file and add headers
 New-Item -ItemType File -Path $UCD_Report -Force
-Add-Content $UCD_Report -Value "Application Name,Environment Name,User Name,Start Time,End Time,Component Name,Component Version,Role,Type,Component Description,Snapshot Name,Snapshot Version"
+Add-Content $UCD_Report -Value "Application Name,Environment Name,User Name,Process Start Time,Process End Time,Component Name,Component Version,Role,Type,Description,Snapshot Name,Snapshot Version"
 
-# Fetch the JSON data
-$requestJson = Get-Content 'tem.json' | Out-String | ConvertFrom-Json
+# Fetch and parse the JSON data
+$requestJson = Get-Content 'tempAppRequest.json' | Out-String | ConvertFrom-Json
 
-# Extract application details
-$AppName = $requestJson.application.name
-$EnvName = if ($requestJson.environment -ne $null) { $requestJson.environment.name } else { "N/A" }
+# Extract top-level details
+$applicationName = if ($requestJson.application.name -ne $null) { $requestJson.application.name } else { "N/A" }
+$environmentName = if ($requestJson.environment.name -ne $null) { $requestJson.environment.name } else { "N/A" }
 $userName = if ($requestJson.userName -ne $null) { $requestJson.userName } else { "N/A" }
 
-# Extract start and end times (convert from UNIX timestamp)
-$startTimeUnix = [int64]$requestJson.starttime
-$startTime = if ($startTimeUnix -ne $null) { (Get-Date "1/1/1970").AddSeconds($startTimeUnix / 1000) } else { "N/A" }
+# Convert start and end times
+$startTimeUnix = if ($requestJson.startTime -ne $null) { [math]::Truncate([double]$requestJson.startTime / 1000) } else { $null }
+$startTime = if ($startTimeUnix -ne $null) { (Get-Date "1/1/1970").AddSeconds($startTimeUnix) } else { "N/A" }
 
-$endTimeUnix = if ($requestJson.endtime -ne $null) { [int64]$requestJson.endtime } else { 0 }
-$endTime = if ($endTimeUnix -gt 0) { (Get-Date "1/1/1970").AddSeconds($endTimeUnix / 1000) } else { "N/A" }
+$endTimeUnix = if ($requestJson.endTime -ne $null) { [math]::Truncate([double]$requestJson.endTime / 1000) } else { $null }
+$endTime = if ($endTimeUnix -ne $null) { (Get-Date "1/1/1970").AddSeconds($endTimeUnix) } else { "N/A" }
 
 # Extract snapshot details
-$snapshotName = if ($requestJson.snapshot -ne $null) { $requestJson.snapshot.name } else { "No Snapshot" }
-$snapshotVersion = if ($requestJson.snapshot -ne $null) { $requestJson.snapshot.version } else { "N/A" }
+$snapshotName = if ($requestJson.snapshot.name -ne $null) { $requestJson.snapshot.name } else { "No Snapshot" }
+$snapshotVersion = if ($requestJson.snapshot.version -ne $null) { $requestJson.snapshot.version } else { "N/A" }
 
-# Extract component details from the manifest
+# Extract component manifest details
 if ($requestJson.manifest -ne $null -and $requestJson.manifest.components -ne $null) {
     foreach ($component in $requestJson.manifest.components) {
         $componentName = if ($component.name -ne $null) { $component.name } else { "N/A" }
         $componentVersion = if ($component.version -ne $null) { $component.version } else { "N/A" }
-        $componentRole = if ($component.role -ne $null) { $component.role } else { "N/A" }
-        $componentType = if ($component.type -ne $null) { $component.type } else { "N/A" }
-        $componentDescription = if ($component.description -ne $null) { $component.description } else { "N/A" }
+        $role = if ($component.role -ne $null) { $component.role } else { "N/A" }
+        $type = if ($component.type -ne $null) { $component.type } else { "N/A" }
+        $description = if ($component.description -ne $null) { $component.description } else { "N/A" }
 
         # Add a line to the report for each component
-        $line = "$AppName,$EnvName,$userName,$startTime,$endTime,$componentName,$componentVersion,$componentRole,$componentType,$componentDescription,$snapshotName,$snapshotVersion"
+        $line = "$applicationName,$environmentName,$userName,$startTime,$endTime,$componentName,$componentVersion,$role,$type,$description,$snapshotName,$snapshotVersion"
         Add-Content $UCD_Report -Value $line
     }
 } else {
-    # Handle case where no components exist
-    $line = "$AppName,$EnvName,$userName,$startTime,$endTime,N/A,N/A,N/A,N/A,N/A,$snapshotName,$snapshotVersion"
+    # Handle case where no components exist in the manifest
+    $line = "$applicationName,$environmentName,$userName,$startTime,$endTime,N/A,N/A,N/A,N/A,N/A,$snapshotName,$snapshotVersion"
     Add-Content $UCD_Report -Value $line
 }
 
 # Output the final report path
-Write-Output "Report generated successfully: $UCD_Report"
+Write-Output "Full application report generated successfully: $UCD_Report"
