@@ -1,11 +1,11 @@
 # Define the report file path
-$UCD_Report = "UCD_End_To_End_Report.csv"
+$UCD_Report = "UCD_Complete_Process_Report.csv"
 
 # Create or overwrite the CSV file and add headers
 New-Item -ItemType File -Path $UCD_Report -Force
-Add-Content $UCD_Report -Value "Application Name,Environment Name,User Name,Process Start Time,Process End Time,Component Name,Component Version,Role,Type,Description,Snapshot Name,Snapshot Version"
+Add-Content $UCD_Report -Value "Application Name,Environment Name,User Name,Process Name,Process Version,Process Start Time,Process End Time,Component Name,Component Version,Role,Type,Description,Snapshot Name,Snapshot Version"
 
-# Fetch and parse the JSON data
+# Load and parse the JSON file
 $requestJson = Get-Content 'tempAppRequest.json' | Out-String | ConvertFrom-Json
 
 # Extract top-level details
@@ -13,35 +13,43 @@ $applicationName = if ($requestJson.application.name -ne $null) { $requestJson.a
 $environmentName = if ($requestJson.environment.name -ne $null) { $requestJson.environment.name } else { "N/A" }
 $userName = if ($requestJson.userName -ne $null) { $requestJson.userName } else { "N/A" }
 
-# Convert start and end times
-$startTimeUnix = if ($requestJson.startTime -ne $null) { [math]::Truncate([double]$requestJson.startTime / 1000) } else { $null }
-$startTime = if ($startTimeUnix -ne $null) { (Get-Date "1/1/1970").AddSeconds($startTimeUnix) } else { "N/A" }
+# Extract process details
+if ($requestJson.processes -ne $null) {
+    foreach ($process in $requestJson.processes) {
+        $processName = if ($process.name -ne $null) { $process.name } else { "N/A" }
+        $processVersion = if ($process.version -ne $null) { $process.version } else { "N/A" }
+        $startTimeUnix = if ($process.startTime -ne $null) { [math]::Truncate([double]$process.startTime / 1000) } else { $null }
+        $startTime = if ($startTimeUnix -ne $null) { (Get-Date "1/1/1970").AddSeconds($startTimeUnix) } else { "N/A" }
 
-$endTimeUnix = if ($requestJson.endTime -ne $null) { [math]::Truncate([double]$requestJson.endTime / 1000) } else { $null }
-$endTime = if ($endTimeUnix -ne $null) { (Get-Date "1/1/1970").AddSeconds($endTimeUnix) } else { "N/A" }
+        $endTimeUnix = if ($process.endTime -ne $null) { [math]::Truncate([double]$process.endTime / 1000) } else { $null }
+        $endTime = if ($endTimeUnix -ne $null) { (Get-Date "1/1/1970").AddSeconds($endTimeUnix) } else { "N/A" }
 
-# Extract snapshot details
-$snapshotName = if ($requestJson.snapshot.name -ne $null) { $requestJson.snapshot.name } else { "No Snapshot" }
-$snapshotVersion = if ($requestJson.snapshot.version -ne $null) { $requestJson.snapshot.version } else { "N/A" }
+        # Extract snapshot details (or set defaults if snapshot is empty)
+        $snapshotName = if ($process.snapshot -ne $null -and $process.snapshot.name -ne $null) { $process.snapshot.name } else { "No Snapshot" }
+        $snapshotVersion = if ($process.snapshot -ne $null -and $process.snapshot.version -ne $null) { $process.snapshot.version } else { "N/A" }
 
-# Extract component manifest details
-if ($requestJson.manifest -ne $null -and $requestJson.manifest.components -ne $null) {
-    foreach ($component in $requestJson.manifest.components) {
-        $componentName = if ($component.name -ne $null) { $component.name } else { "N/A" }
-        $componentVersion = if ($component.version -ne $null) { $component.version } else { "N/A" }
-        $role = if ($component.role -ne $null) { $component.role } else { "N/A" }
-        $type = if ($component.type -ne $null) { $component.type } else { "N/A" }
-        $description = if ($component.description -ne $null) { $component.description } else { "N/A" }
+        # Extract component details for the process
+        if ($process.components -ne $null) {
+            foreach ($component in $process.components) {
+                $componentName = if ($component.name -ne $null) { $component.name } else { "N/A" }
+                $componentVersion = if ($component.version -ne $null) { $component.version } else { "N/A" }
+                $role = if ($component.role -ne $null) { $component.role } else { "N/A" }
+                $type = if ($component.type -ne $null) { $component.type } else { "N/A" }
+                $description = if ($component.description -ne $null) { $component.description } else { "N/A" }
 
-        # Add a line to the report for each component
-        $line = "$applicationName,$environmentName,$userName,$startTime,$endTime,$componentName,$componentVersion,$role,$type,$description,$snapshotName,$snapshotVersion"
-        Add-Content $UCD_Report -Value $line
+                # Write a line to the CSV file for each component
+                $line = "$applicationName,$environmentName,$userName,$processName,$processVersion,$startTime,$endTime,$componentName,$componentVersion,$role,$type,$description,$snapshotName,$snapshotVersion"
+                Add-Content $UCD_Report -Value $line
+            }
+        } else {
+            # If no components are defined, write process-level details
+            $line = "$applicationName,$environmentName,$userName,$processName,$processVersion,$startTime,$endTime,N/A,N/A,N/A,N/A,N/A,$snapshotName,$snapshotVersion"
+            Add-Content $UCD_Report -Value $line
+        }
     }
 } else {
-    # Handle case where no components exist in the manifest
-    $line = "$applicationName,$environmentName,$userName,$startTime,$endTime,N/A,N/A,N/A,N/A,N/A,$snapshotName,$snapshotVersion"
-    Add-Content $UCD_Report -Value $line
+    Write-Output "No processes found in the JSON data."
 }
 
 # Output the final report path
-Write-Output "Full application report generated successfully: $UCD_Report"
+Write-Output "End-to-end process report generated successfully: $UCD_Report"
