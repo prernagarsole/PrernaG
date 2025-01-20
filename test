@@ -3,24 +3,19 @@ $UCD_Report = "UCD_Report.csv"
 
 # Create or overwrite the CSV file and add headers
 New-Item -ItemType File -Path $UCD_Report -Force
-Add-Content $UCD_Report -Value "Application Name,Environment Name,User Name,Start Time,End Time,Component Name,Component Version,Snapshot Name,Snapshot Version"
+Add-Content $UCD_Report -Value "Application Name,Environment Name,User Name,Start Time,End Time,Component Name,Component Version,Role,Type,Component Description,Snapshot Name,Snapshot Version"
 
-# Fetch the application details from a JSON file or API
+# Fetch the JSON data
 $requestJson = Get-Content 'tem.json' | Out-String | ConvertFrom-Json
 
 # Extract application details
-$AppID = $requestJson.application.id
 $AppName = $requestJson.application.name
-
-# Extract environment name (if available, else set as "N/A")
 $EnvName = if ($requestJson.environment -ne $null) { $requestJson.environment.name } else { "N/A" }
-
-# Extract username (if available, else set as "N/A")
 $userName = if ($requestJson.userName -ne $null) { $requestJson.userName } else { "N/A" }
 
 # Extract start and end times (convert from UNIX timestamp)
 $startTimeUnix = [int64]$requestJson.starttime
-$startTime = (Get-Date "1/1/1970").AddSeconds($startTimeUnix / 1000)
+$startTime = if ($startTimeUnix -ne $null) { (Get-Date "1/1/1970").AddSeconds($startTimeUnix / 1000) } else { "N/A" }
 
 $endTimeUnix = if ($requestJson.endtime -ne $null) { [int64]$requestJson.endtime } else { 0 }
 $endTime = if ($endTimeUnix -gt 0) { (Get-Date "1/1/1970").AddSeconds($endTimeUnix / 1000) } else { "N/A" }
@@ -29,19 +24,22 @@ $endTime = if ($endTimeUnix -gt 0) { (Get-Date "1/1/1970").AddSeconds($endTimeUn
 $snapshotName = if ($requestJson.snapshot -ne $null) { $requestJson.snapshot.name } else { "No Snapshot" }
 $snapshotVersion = if ($requestJson.snapshot -ne $null) { $requestJson.snapshot.version } else { "N/A" }
 
-# Extract component and version details from the manifest (if available)
-if ($requestJson.manifest -ne $null) {
+# Extract component details from the manifest
+if ($requestJson.manifest -ne $null -and $requestJson.manifest.components -ne $null) {
     foreach ($component in $requestJson.manifest.components) {
-        $componentName = $component.name
-        $componentVersion = $component.version
+        $componentName = if ($component.name -ne $null) { $component.name } else { "N/A" }
+        $componentVersion = if ($component.version -ne $null) { $component.version } else { "N/A" }
+        $componentRole = if ($component.role -ne $null) { $component.role } else { "N/A" }
+        $componentType = if ($component.type -ne $null) { $component.type } else { "N/A" }
+        $componentDescription = if ($component.description -ne $null) { $component.description } else { "N/A" }
 
         # Add a line to the report for each component
-        $line = "$AppName,$EnvName,$userName,$startTime,$endTime,$componentName,$componentVersion,$snapshotName,$snapshotVersion"
+        $line = "$AppName,$EnvName,$userName,$startTime,$endTime,$componentName,$componentVersion,$componentRole,$componentType,$componentDescription,$snapshotName,$snapshotVersion"
         Add-Content $UCD_Report -Value $line
     }
 } else {
-    # Handle case where no manifest or components exist
-    $line = "$AppName,$EnvName,$userName,$startTime,$endTime,N/A,N/A,$snapshotName,$snapshotVersion"
+    # Handle case where no components exist
+    $line = "$AppName,$EnvName,$userName,$startTime,$endTime,N/A,N/A,N/A,N/A,N/A,$snapshotName,$snapshotVersion"
     Add-Content $UCD_Report -Value $line
 }
 
