@@ -1,238 +1,49 @@
-name: Renew Repository Secret
+# Define the report file path
+$UCD_Report = "UCD_Report.csv"
 
-on:
-  schedule:
-    - cron: '*/5 * * * *'  # This cron schedule runs every 5 minutes
+# Create or overwrite the CSV file and add headers
+New-Item -ItemType File -Path $UCD_Report -Force
+Add-Content $UCD_Report -Value "Application Name,Environment Name,User Name,Start Time,End Time,Component Name,Component Version,Snapshot Name,Snapshot Version"
 
-  workflow_dispatch:
+# Fetch the application details from a JSON file or API
+$requestJson = Get-Content 'tem.json' | Out-String | ConvertFrom-Json
 
-jobs:
-  renew-secret:
-    runs-on: ubuntu-latest
+# Extract application details
+$AppID = $requestJson.application.id
+$AppName = $requestJson.application.name
 
-    steps:
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.x'
+# Extract environment name (if available, else set as "N/A")
+$EnvName = if ($requestJson.environment -ne $null) { $requestJson.environment.name } else { "N/A" }
 
-      - name: Install required packages
-        run: |
-          python -m pip install --upgrade pip
-          pip install requests cryptography
+# Extract username (if available, else set as "N/A")
+$userName = if ($requestJson.userName -ne $null) { $requestJson.userName } else { "N/A" }
 
-      - name: Renew Repository Secret
-        run: |
-          python - <<EOF
-          import base64
-          import requests
-          import os
-          from cryptography.hazmat.primitives.asymmetric import rsa
-          from cryptography.hazmat.primitives import serialization
-          from cryptography.hazmat.primitives.asymmetric import padding
-          from cryptography.hazmat.primitives import hashes
-          import secrets
+# Extract start and end times (convert from UNIX timestamp)
+$startTimeUnix = [int64]$requestJson.starttime
+$startTime = (Get-Date "1/1/1970").AddSeconds($startTimeUnix / 1000)
 
-          # Hardcoded values
-          GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
-          SECRET_NAME = 'your_secret_name'
-          REPO_NAME = 'owner/repo'  # Update with your repository
+$endTimeUnix = if ($requestJson.endtime -ne $null) { [int64]$requestJson.endtime } else { 0 }
+$endTime = if ($endTimeUnix -gt 0) { (Get-Date "1/1/1970").AddSeconds($endTimeUnix / 1000) } else { "N/A" }
 
-          def generate_secret_value():
-              # Generate a random 32-byte secret value
-              return secrets.token_hex(32)
+# Extract snapshot details
+$snapshotName = if ($requestJson.snapshot -ne $null) { $requestJson.snapshot.name } else { "No Snapshot" }
+$snapshotVersion = if ($requestJson.snapshot -ne $null) { $requestJson.snapshot.version } else { "N/A" }
 
-          def update_secret(secret_name, secret_value):
-              headers = {
-                  "Authorization": f"Bearer {GITHUB_TOKEN}",
-                  "Accept": "application/vnd.github.v3+json"
-              }
-              public_key_url = f"https://api.github.com/repos/{REPO_NAME}/actions/secrets/public-key"
-              
-              try:
-                  response = requests.get(public_key_url, headers=headers)
-                  response.raise_for_status()
-              except requests.exceptions.HTTPError as http_err:
-                  print(f"HTTP error occurred while fetching public key: {http_err}")
-                  print(f"Response content: {response.text}")
-                  return
-              except Exception as err:
-                  print(f"Other error occurred: {err}")
-                  return
+# Extract component and version details from the manifest (if available)
+if ($requestJson.manifest -ne $null) {
+    foreach ($component in $requestJson.manifest.components) {
+        $componentName = $component.name
+        $componentVersion = $component.version
 
-              public_key_data = response.json()
-              public_key = public_key_data["key"]
-              key_id = public_key_data["key_id"]
+        # Add a line to the report for each component
+        $line = "$AppName,$EnvName,$userName,$startTime,$endTime,$componentName,$componentVersion,$snapshotName,$snapshotVersion"
+        Add-Content $UCD_Report -Value $line
+    }
+} else {
+    # Handle case where no manifest or components exist
+    $line = "$AppName,$EnvName,$userName,$startTime,$endTime,N/A,N/A,$snapshotName,$snapshotVersion"
+    Add-Content $UCD_Report -Value $line
+}
 
-              public_key_bytes = base64.b64decode(public_key)
-              public_key = rsa.RSAPublicKey.load_pem_public_key(public_key_bytes)
-              encrypted_value = public_key.encrypt(
-                  secret_value.encode(),
-                  padding.OAEP(
-                      mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                      algorithm=hashes.SHA256(),
-                      label=None
-                  )
-              )
-
-              encrypted_value_base64 = base64.b64encode(encrypted_value).decode()
-
-              update_secret_url = f"https://api.github.com/repos/{REPO_NAME}/actions/secrets/{secret_name}"
-              data = {
-                  "encrypted_value": encrypted_value_base64,
-                  "key_id": key_id
-              }
-              
-              try:
-                  response = requests.put(update_secret_url, headers=headers, json=data)
-                  response.raise_for_status()
-              except requests.exceptions.HTTPError as http_err:
-                  print(f"HTTP error occurred while updating secret: {http_err}")
-                  print(f"Response content: {response.text}")
-              except Exception as err:
-                  print(f"Other error occurred: {err}")
-
-              print(f"Secret {secret_name} renewed successfully.")
-
-          # Generate a new secret value
-          new_secret_value = generate_secret_value()
-
-          # Update the secret
-          update_secret(SECRET_NAME, new_secret_value)
-
-          # Print the new secret value for verification
-          print(f"New secret value: {new_secret_value}")
-
-          EOF
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-name: Renew Repository Secret
-
-on:
-  workflow_dispatch:  # Manual trigger
-
-jobs:
-  renew-secret:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.x'
-
-      - name: Install required packages
-        run: |
-          python -m pip install --upgrade pip
-          pip install requests cryptography
-
-      - name: Renew Repository Secret
-        run: |
-          python - <<EOF
-          import base64
-          import requests
-          import os
-          from cryptography.hazmat.primitives.asymmetric import rsa
-          from cryptography.hazmat.primitives import serialization
-          from cryptography.hazmat.primitives.asymmetric import padding
-          from cryptography.hazmat.primitives import hashes
-          import secrets
-
-          # Set environment variables
-          GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
-          SECRET_NAME = 'YOUR_SECRET_NAME'  # Replace with your secret name
-          REPO_NAME = 'owner/repo'  # Replace with your repository
-
-          def generate_secret_value():
-              return secrets.token_hex(32)
-
-          def update_secret(secret_name, secret_value):
-              headers = {
-                  "Authorization": f"Bearer {GITHUB_TOKEN}",
-                  "Accept": "application/vnd.github.v3+json"
-              }
-              public_key_url = f"https://api.github.com/repos/{REPO_NAME}/actions/secrets/public-key"
-              
-              print(f"Fetching public key from {public_key_url}")
-
-              try:
-                  response = requests.get(public_key_url, headers=headers)
-                  response.raise_for_status()
-              except requests.exceptions.HTTPError as http_err:
-                  print(f"HTTP error occurred while fetching public key: {http_err}")
-                  print(f"Response content: {response.text}")
-                  return
-              except Exception as err:
-                  print(f"Other error occurred: {err}")
-                  return
-
-              public_key_data = response.json()
-              public_key = public_key_data.get("key")
-              key_id = public_key_data.get("key_id")
-
-              if not public_key:
-                  print("Public key not found.")
-                  return
-
-              print(f"Public key fetched successfully. Key ID: {key_id}")
-
-              public_key_bytes = base64.b64decode(public_key)
-              public_key = rsa.RSAPublicKey.load_pem_public_key(public_key_bytes)
-              encrypted_value = public_key.encrypt(
-                  secret_value.encode(),
-                  padding.OAEP(
-                      mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                      algorithm=hashes.SHA256(),
-                      label=None
-                  )
-              )
-
-              encrypted_value_base64 = base64.b64encode(encrypted_value).decode()
-
-              update_secret_url = f"https://api.github.com/repos/{REPO_NAME}/actions/secrets/{secret_name}"
-              data = {
-                  "encrypted_value": encrypted_value_base64,
-                  "key_id": key_id
-              }
-              
-              print(f"Updating secret at {update_secret_url}")
-
-              try:
-                  response = requests.put(update_secret_url, headers=headers, json=data)
-                  response.raise_for_status()
-              except requests.exceptions.HTTPError as http_err:
-                  print(f"HTTP error occurred while updating secret: {http_err}")
-                  print(f"Response content: {response.text}")
-              except Exception as err:
-                  print(f"Other error occurred: {err}")
-
-              print(f"Secret {secret_name} renewed successfully.")
-
-          # Generate a new secret value
-          new_secret_value = generate_secret_value()
-
-          # Update the secret
-          update_secret(SECRET_NAME, new_secret_value)
-
-          # Print the new secret value for verification
-          print(f"New secret value: {new_secret_value}")
-
-          EOF
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+# Output the final report path
+Write-Output "Report generated successfully: $UCD_Report"
