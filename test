@@ -1,79 +1,91 @@
-
 # Prompt for credentials
 $username = Read-Host "Enter your Emp ID"
 $password = Read-Host "Enter your Password" -AsSecureString
-$plainPassword = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($password))
-$encodedCreds = [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes("$username:$plainPassword"))
+$plainPassword = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto(
+    [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($password)
+)
 
-# Authorization header
-$Headers = @{
-    Authorization = "Basic $encodedCreds"
-}
+# Encode credentials
+$encodedCreds = [Convert]::ToBase64String(
+    [Text.Encoding]::UTF8.GetBytes("$($username):$($plainPassword)")
+)
+$basicAuthValue = "Basic $encodedCreds"
 
-# URLs for fetching reports
+# Define URLs
 $priorMonthUrl = "https://udeploy.nnnn.net:8443/rest/report/adHoc?dateRange=priorMonth&orderField=application&sortType=asc&type=com.urbancode.ds.subsys.report.domain"
 $currentMonthUrl = "https://udeploy.nnnn.net:8443/rest/report/adHoc?dateRange=currentMonth&orderField=application&sortType=asc&type=com.urbancode.ds.subsys.report.domain"
 $priorWeekUrl = "https://udeploy.nnnn.net:8443/rest/report/adHoc?dateRange=priorWeek&orderField=application&sortType=asc&type=com.urbancode.ds.subsys.report.domain"
 
-# Output CSV file
-$outputCsvPath = ".\UCD_Report.csv"
-# Write CSV header
-"Application Name,Environment Name,User Name,Start Time,End Time,Component Name,Component Version" | Out-File -FilePath $outputCsvPath -Force
-
-# Fetch prior week data
-$response = Invoke-WebRequest -Uri $priorWeekUrl -Method Get -Headers $Headers
-$reportJson = $response.Content | ConvertFrom-Json
-
-# Process each report item
-foreach ($item in $reportJson.items) {
-    $env = $item.environment
-    $appRequestID = $item.applicationRequestId
-    $status = $item.status
-
-    if ($status -eq "SUCCESS") {
-        $appRequestUrl = "https://udeploy.nnnn.net:8443/cli/applicationProcessRequest/info/$appRequestID"
-        $appResponse = Invoke-WebRequest -Uri $appRequestUrl -Method Get -Headers $Headers
-        $requestJson = $appResponse.Content | ConvertFrom-Json
-
-        $appName = $requestJson.application.name
-        $snapshotID = $requestJson.snapshot.id
-        $snapshotName = $requestJson.snapshot.name
-        $envName = $requestJson.environment.name
-        $userName = $requestJson.userName
-        $startTime = (Get-Date "1/1/1970").AddSeconds([math]::truncate($requestJson.startTime / 1000)).ToLocalTime()
-        $endTime = (Get-Date "1/1/1970").AddSeconds([math]::truncate($requestJson.endTime / 1000)).ToLocalTime()
-
-        # Fetch snapshot details if in production
-        $line = "$appName,$envName,$userName,$startTime,$endTime"
-        if ($env -like "PRD*" -or $env -like "PROD*") {
-            $snapshotUrl = "https://udeploy.nnnn.net:8443/cli/snapshot/getSnapshotVersions?application=$($requestJson.application.id)&snapshot=$snapshotID"
-            $snapshotResponse = Invoke-WebRequest -Uri $snapshotUrl -Method Get -Headers $Headers
-            $snapshotJson = $snapshotResponse.Content | ConvertFrom-Json
-
-            foreach ($component in $snapshotJson) {
-                $compName = $component.name
-                $version = $component.desiredVersions.name
-                if ($version -ne $null) {
-                    $line += ",$compName,$version"
-                }
-            }
-        } else {
-            # For non-production environments
-            $manifestUrl = "https://udeploy.nnnn.net:8443/cli/applicationProcessRequest/request/$appRequestID"
-            $manifestResponse = Invoke-WebRequest -Uri $manifestUrl -Method Get -Headers $Headers
-            $manifestJson = $manifestResponse.Content | ConvertFrom-Json
-
-            foreach ($manifestItem in $manifestJson.versions) {
-                $compName = $manifestItem.componentName
-                $version = $manifestItem.versionName
-                if ($version -ne $null) {
-                    $line += ",$compName,$version"
-                }
-            }
-        }
-        # Write to CSV
-        Add-Content -Path $outputCsvPath -Value $line
-    }
+# Set headers
+$headers = @{
+    Authorization = $basicAuthValue
 }
 
-Write-Host "UCD Report has been successfully generated at $outputCsvPath"
+# Initialize CSV file
+$outputFile = ".\UCD_Prod_Report.csv"
+"Application Name,Environment Name,User Name,Start Time,End Time,Component Name,Component Version" | Out-File -FilePath $outputFile -Force
+
+# Fetch data for the prior week
+$response = Invoke-WebRequest -Uri $priorWeekUrl -Method Get -Headers $headers
+$responseContent = $response.Content | ConvertFrom-Json
+
+# Parse response and write to CSV
+$responseContent.items | ForEach-Object {
+    # Extract basic details
+    $appName = $_.applicationName
+    $envName = $_.environmentName
+    $userName = $_.userName
+    $startTimeUnix = $_.startTime
+    $endTimeUnix = $_.endTime
+
+    # Convert UNIX timestamps to local time
+    $startTime = (Get-Date "1/1/1970").AddSeconds([int64]([math]::Truncate($startTimeUnix / 1000))).ToLocalTime()
+    $endTime = (Get-Date "1/1/1970").AddSeconds([int64]([math]::Truncate($endTimeUnix / 1000))).ToLocalTime()
+
+    # Fetch snapshot details if in production
+    $line = "$appName,$envName,$userName,$startTime,$endTime"
+    if ($envName -like "PRD*" -or $envName -like "PROD*") {
+        $appRequestID = $_.applicationRequestId
+        $appRequestUrl = "https://udeploy.nnnn.net:8443/cli/applicationProcessRequest/info/$appRequestID"
+        
+        # Fetch application process details
+        $appResponse = Invoke-WebRequest -Uri $appRequestUrl -Method Get -Headers $headers
+        $appRequestJson = $appResponse.Content | ConvertFrom-Json
+
+        $snapshotID = $appRequestJson.snapshot.id
+        $snapshotName = $appRequestJson.snapshot.name
+
+        # Fetch snapshot versions
+        $snapshotUrl = "https://udeploy.nnnn.net:8443/cli/snapshot/getSnapshotVersions?application=$($appRequestJson.application.id)&snapshot=$snapshotID"
+        $snapshotResponse = Invoke-WebRequest -Uri $snapshotUrl -Method Get -Headers $headers
+        $snapshotJson = $snapshotResponse.Content | ConvertFrom-Json
+
+        # Add component details
+        $snapshotJson | ForEach-Object {
+            $compName = $_.name
+            $compVersion = $_.desiredVersions.name
+            if ($null -ne $compVersion) {
+                $line += ",$compName,$compVersion"
+            }
+        }
+    } else {
+        # Non-production logic to fetch manifest (if required)
+        $appRequestID = $_.applicationRequestId
+        $manifestUrl = "https://udeploy.nnnn.net:8443/cli/applicationProcessRequest/request/$appRequestID"
+        $manifestResponse = Invoke-WebRequest -Uri $manifestUrl -Method Get -Headers $headers
+        $manifestJson = $manifestResponse.Content | ConvertFrom-Json
+
+        $manifestJson.versions | ForEach-Object {
+            $compName = $_.componentName
+            $compVersion = $_.versionName
+            if ($null -ne $compVersion) {
+                $line += ",$compName,$compVersion"
+            }
+        }
+    }
+
+    # Write line to CSV
+    $line | Out-File -FilePath $outputFile -Append
+}
+
+Write-Output "Report generation complete. File saved to $outputFile."
