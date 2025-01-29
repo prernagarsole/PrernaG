@@ -112,6 +112,13 @@ Write-Output "Report generation complete. File saved to $outputFile."
 
 
 
+
+
+
+
+
+
+
 # Create a new file for the UCD Report (CSV format)
 $UCDReport = New-Item -ItemType File -Path .\UCD_Report.csv -Force
 
@@ -146,9 +153,13 @@ if ($requestJson.snapshot -and $requestJson.snapshot.id) {
     Write-Host "Warning: Snapshot is missing or empty. Proceeding without snapshot details."
 }
 
-# Convert the start and end times from Unix format to DateTime
-$StartTime = [System.DateTime]::OffsetToLocalTime([System.DateTimeOffset]::FromUnixTimeMilliseconds($StartTimeUnix))
-$EndTime = [System.DateTime]::OffsetToLocalTime([System.DateTimeOffset]::FromUnixTimeMilliseconds($EndTimeUnix))
+# Convert Unix time (milliseconds) to DateTime
+$StartTime = [System.DateTimeOffset]::FromUnixTimeMilliseconds($StartTimeUnix).DateTime
+$EndTime = [System.DateTimeOffset]::FromUnixTimeMilliseconds($EndTimeUnix).DateTime
+
+# Convert DateTime to local time
+$StartTime = $StartTime.ToLocalTime()
+$EndTime = $EndTime.ToLocalTime()
 
 # Format the DateTime as needed (e.g., to a readable string format)
 $FormattedStartTime = $StartTime.ToString("yyyy-MM-dd HH:mm:ss")
@@ -162,4 +173,3 @@ Add-Content -Path $UCDReport.FullName -Value $ReportData
 
 # Display the output
 Write-Host "Report generated: $($UCDReport.FullName)"
-
