@@ -144,9 +144,9 @@ $startTime = $tempDate.AddSeconds($unixTimeStart).ToLocalTime()
 $unixTimeEnd = [int64][math]::Truncate([double]$endTimeUnix / 1000)
 $endTime = $tempDate.AddSeconds($unixTimeEnd).ToLocalTime()
 
-# Extract component name and version from the application process data
-$componentName = $requestIon.applicationProcess.component.name
-$componentVersion = $requestIon.applicationProcess.component.version
+# Extract component name and version from the application process data (this assumes you are looking for components inside the process history)
+$componentName = $requestIon.applicationProcess.history[0].component.name
+$componentVersion = $requestIon.applicationProcess.history[0].component.version
 
 # Prepare the CSV line with all extracted details
 $line = "$AppName, $EnvName, $userName, $startTime, $endTime, $componentName, $componentVersion"
