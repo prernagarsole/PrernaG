@@ -90,3 +90,76 @@ $responseContent.items | ForEach-Object {
 }
 
 Write-Output "Report generation complete. File saved to $outputFile."
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Create a new file for the UCD Report (CSV format)
+$UCDReport = New-Item -ItemType File -Path .\UCD_Report.csv -Force
+
+# Add header to the CSV file
+Add-Content -Path $UCDReport.FullName -Value "Application Name, Environment Name, User Name, Start Time, End Time, Component Name, Component Version, Snapshot ID, Snapshot Name"
+
+# Load the JSON request file
+$requestJson = Get-Content 'tempAppRequest_AEM-ENET_INTG2.json' | Out-String | ConvertFrom-Json
+
+# Extract the relevant fields from the JSON
+$AppID = $requestJson.application.id
+$AppName = $requestJson.application.name
+$EnvName = $requestJson.environment.name
+$UserName = $requestJson.userName
+$StartTimeUnix = $requestJson.startTime
+$EndTimeUnix = $requestJson.endTime  # Assuming 'endTime' exists in your JSON file
+$ComponentName = $requestJson.component.name  # Assuming component name exists in the JSON
+$ComponentVersion = $requestJson.component.version  # Assuming component version exists in the JSON
+
+# Extract snapshot details (always fetch, even if empty)
+$snapshotId = ""
+$snapshotName = ""
+
+if ($requestJson.snapshot -and $requestJson.snapshot.id) {
+    # If snapshot exists, fetch snapshot details
+    $snapshotId = $requestJson.snapshot.id
+    $snapshotName = $requestJson.snapshot.name
+} else {
+    # If snapshot is missing, handle it by assigning "N/A" or "No Snapshot"
+    $snapshotId = "No Snapshot"
+    $snapshotName = "No Snapshot"
+    Write-Host "Warning: Snapshot is missing or empty. Proceeding without snapshot details."
+}
+
+# Convert the start and end times from Unix format to DateTime
+$StartTime = [System.DateTime]::OffsetToLocalTime([System.DateTimeOffset]::FromUnixTimeMilliseconds($StartTimeUnix))
+$EndTime = [System.DateTime]::OffsetToLocalTime([System.DateTimeOffset]::FromUnixTimeMilliseconds($EndTimeUnix))
+
+# Format the DateTime as needed (e.g., to a readable string format)
+$FormattedStartTime = $StartTime.ToString("yyyy-MM-dd HH:mm:ss")
+$FormattedEndTime = $EndTime.ToString("yyyy-MM-dd HH:mm:ss")
+
+# Prepare the data to append to the CSV file
+$ReportData = "$AppName, $EnvName, $UserName, $FormattedStartTime, $FormattedEndTime, $ComponentName, $ComponentVersion, $snapshotId, $snapshotName"
+
+# Add the data to the report
+Add-Content -Path $UCDReport.FullName -Value $ReportData
+
+# Display the output
+Write-Host "Report generated: $($UCDReport.FullName)"
+
