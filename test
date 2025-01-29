@@ -121,51 +121,64 @@ Write-Output "Report generation complete. File saved to $outputFile."
 
 
 
+# Define your UCD server details and credentials
+$UCDServer = "https://your-ucd-server.example.com"
+$Username = "your-username"
+$Password = "your-password"
+$ApplicationName = "aaaaaa"  # Specify the application name
+
+# Basic authentication for UCD
+$Base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes((":$Password")))
+
 # Create a new file for the UCD Report (CSV format)
 $UCDReport = New-Item -ItemType File -Path .\UCD_Report.csv -Force
 
 # Add header to the CSV file
 Add-Content -Path $UCDReport.FullName -Value "Application Name, Environment Name, Snapshot ID, Snapshot Name, User Name, Start Time, End Time, Component Name, Component Version"
 
-# Load the JSON request file
-$requestJson = Get-Content 'tempAppRequest_AEM-ENET_INTG2.json' | Out-String | ConvertFrom-Json
+# Login and fetch application data
+$uri = "$UCDServer/rest/applications/$ApplicationName"
 
-# Extract the relevant fields from the JSON
-$AppID = $requestJson.application.id
-$AppName = $requestJson.application.name
-$UserName = $requestJson.userName
-$StartTimeUnix = $requestJson.startTime
-$EndTimeUnix = $requestJson.endTime  # Assuming 'endTime' exists in your JSON file
-$ComponentName = $requestJson.component.name  # Assuming component name exists in the JSON
-$ComponentVersion = $requestJson.component.version  # Assuming component version exists in the JSON
+# Fetch the application details
+$response = Invoke-RestMethod -Uri $uri -Method Get -Headers @{Authorization=("Basic {0}" -f $Base64AuthInfo)} -ContentType "application/json"
 
-# Convert the start and end times from Unix format to DateTime
-$StartTime = [System.DateTimeOffset]::FromUnixTimeMilliseconds($StartTimeUnix).DateTime
-$EndTime = [System.DateTimeOffset]::FromUnixTimeMilliseconds($EndTimeUnix).DateTime
-
-# Format the DateTime as needed (e.g., to a readable string format)
-$FormattedStartTime = $StartTime.ToString("yyyy-MM-dd HH:mm:ss")
-$FormattedEndTime = $EndTime.ToString("yyyy-MM-dd HH:mm:ss")
-
-# Loop through each environment and fetch details
-foreach ($environment in $requestJson.environments) {
+# Loop through environments and extract data for each environment
+foreach ($environment in $response.environments) {
     $EnvName = $environment.name
-    
-    # Check if snapshot exists
-    if ($environment.snapshot -and $environment.snapshot.id) {
-        $SnapshotId = $environment.snapshot.id
-        $SnapshotName = $environment.snapshot.name
-    } else {
-        # Handle empty snapshot
-        $SnapshotId = "No Snapshot"
-        $SnapshotName = "No Snapshot"
+
+    # Fetch environment details including snapshot and component information
+    $snapshots = $environment.snapshots
+    $components = $environment.components
+
+    foreach ($snapshot in $snapshots) {
+        # If no snapshot, set to No Snapshot
+        $SnapshotID = if ($snapshot -eq $null) { "No Snapshot" } else { $snapshot.id }
+        $SnapshotName = if ($snapshot -eq $null) { "No Snapshot" } else { $snapshot.name }
+
+        foreach ($component in $components) {
+            $ComponentName = $component.name
+            $ComponentVersion = $component.version
+
+            # Assuming other fields like start time and end time are available from the response
+            $StartTimeUnix = $environment.startTime
+            $EndTimeUnix = $environment.endTime
+            $UserName = $environment.userName
+
+            # Convert the start and end times from Unix format to DateTime
+            $StartTime = [System.DateTime]::FromFileTimeUtc($StartTimeUnix)
+            $EndTime = [System.DateTime]::FromFileTimeUtc($EndTimeUnix)
+
+            # Format the DateTime as needed (e.g., to a readable string format)
+            $FormattedStartTime = $StartTime.ToString("yyyy-MM-dd HH:mm:ss")
+            $FormattedEndTime = $EndTime.ToString("yyyy-MM-dd HH:mm:ss")
+
+            # Prepare the data to append to the CSV file
+            $ReportData = "$ApplicationName, $EnvName, $SnapshotID, $SnapshotName, $UserName, $FormattedStartTime, $FormattedEndTime, $ComponentName, $ComponentVersion"
+
+            # Add the data to the report
+            Add-Content -Path $UCDReport.FullName -Value $ReportData
+        }
     }
-
-    # Prepare the data to append to the CSV file
-    $ReportData = "$AppName, $EnvName, $SnapshotId, $SnapshotName, $UserName, $FormattedStartTime, $FormattedEndTime, $ComponentName, $ComponentVersion"
-
-    # Add the data to the report
-    Add-Content -Path $UCDReport.FullName -Value $ReportData
 }
 
 # Display the output
