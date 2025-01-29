@@ -118,12 +118,12 @@ Write-Output "Report generation complete. File saved to $outputFile."
 
 
 
-# Create a new report file or overwrite existing one
-$UCD_Report = New-Item -ItemType File -Path 'IUCD_Report.csv' -Force
-Add-Content $UCD_Report -Value "Application Name, Environment Name, User Name, Start Time, End Time, Component Name, Component Version, Component Description, Component Type, Component Tags"
-
 # Load the request data from the JSON file
 $requestIon = Get-Content 'tempAppRequest_AEM-ENET_INTG2.json' | Out-String | ConvertFrom-Json
+
+# Debugging: Print the entire structure of the JSON to find the component details
+Write-Output "Full JSON Structure:"
+Write-Output ($requestIon | ConvertTo-Json -Depth 5)
 
 # Extract relevant details from the JSON data
 $AppID = $requestIon.application.id
@@ -141,20 +141,25 @@ $startTime = $tempDate.AddSeconds($unixTimeStart).ToLocalTime()
 $unixTimeEnd = [int64][math]::Truncate([double]$endTimeUnix / 1000)
 $endTime = $tempDate.AddSeconds($unixTimeEnd).ToLocalTime()
 
-# Extract component details from the application process data
-$componentId = $requestIon.applicationProcess.component.id
-$componentSecurityResourceId = $requestIon.applicationProcess.component.securityResourceId
-$componentName = $requestIon.applicationProcess.component.name
-$componentDescription = $requestIon.applicationProcess.component.descr
-$componentVersionType = $requestIon.applicationProcess.component.defaultversionType
-$componentType = $requestIon.applicationProcess.component.componentType
-$componentTags = $requestIon.applicationProcess.component.tags | ForEach-Object { $_.name -join ", " }
+# Now attempt to extract the component details after checking JSON structure
+if ($requestIon.applicationProcess.component) {
+    $componentId = $requestIon.applicationProcess.component.id
+    $componentSecurityResourceId = $requestIon.applicationProcess.component.securityResourceId
+    $componentName = $requestIon.applicationProcess.component.name
+    $componentDescription = $requestIon.applicationProcess.component.descr
+    $componentVersionType = $requestIon.applicationProcess.component.defaultversionType
+    $componentType = $requestIon.applicationProcess.component.componentType
+    $componentTags = $requestIon.applicationProcess.component.tags | ForEach-Object { $_.name -join ", " }
 
-# Prepare the CSV line with all extracted details
-$line = "$AppName, $EnvName, $userName, $startTime, $endTime, $componentName, $componentVersionType, $componentDescription, $componentType, $componentTags"
+    # Prepare the CSV line with all extracted details
+    $line = "$AppName, $EnvName, $userName, $startTime, $endTime, $componentName, $componentVersionType, $componentDescription, $componentType, $componentTags"
 
-# Output to console for debugging
-Write-Output $line
+    # Output to console for debugging
+    Write-Output $line
 
-# Append the line to the CSV report
-Add-Content $UCD_Report -Value $line
+    # Append the line to the CSV report
+    $UCD_Report = New-Item -ItemType File -Path 'IUCD_Report.csv' -Force
+    Add-Content $UCD_Report -Value $line
+} else {
+    Write-Output "Component details not found in the JSON data"
+}
